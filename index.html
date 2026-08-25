@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Farol PMO – Implementation Report</title>
+  <!-- SheetJS for client-side Excel processing -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Dark Theme (Default) ── */
+    :root {
+      --bg:         #0d1117;
+      --surface:    #161b22;
+      --border:     #30363d;
+      --text:       #e6edf3;
+      --muted:      #8b949e;
+      --accent:     #58a6ff;
+      --element-bg: #1c2128;
+      --farol-bg:   #11151a;
+      --track-bg:   #21262d;
+    }
+
+    /* ── Light Theme ── */
+    body.light-theme {
+      --bg:         #f6f8fa;
+      --surface:    #ffffff;
+      --border:     #d0d7de;
+      --text:       #1f2328;
+      --muted:      #656d76;
+      --accent:     #0969da;
+      --element-bg: #f3f4f6;
+      --farol-bg:   #e5e7eb;
+      --track-bg:   #e5e7eb;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+      padding: 32px 24px;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* ── Upload Area ── */
+    .upload-box {
+      background: var(--surface);
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      margin-bottom: 28px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .upload-box:hover, .upload-box.dragover {
+      border-color: var(--accent);
+      background: var(--element-bg);
+    }
+    .upload-box p {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 6px;
+    }
+    .upload-box input { display: none; }
+
+    /* ── Header ── */
+    .header {
+      display: flex; flex-direction: column; align-items: center; text-align: center;
+      margin-bottom: 32px; padding-bottom: 32px; border-bottom: 1px solid var(--border);
+    }
+    .header h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+    .header .sub { color: var(--muted); font-size: 12px; margin-top: 6px; font-family: 'IBM Plex Mono', monospace; }
+
+    .action-row {
+      display: flex; gap: 12px; margin-top: 16px; align-items: center;
+    }
+    .btn {
+      padding: 8px 18px; border-radius: 6px; cursor: pointer;
+      background: var(--surface); color: var(--text); border: 1px solid var(--border);
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      transition: all 0.2s;
+    }
+    .btn:hover { background: var(--element-bg); }
+
+    /* ── Project Metadata ── */
+    .project-info {
+      display: flex; flex-wrap: wrap; gap: 32px; justify-content: center;
+      margin-top: 24px; padding: 16px 32px; background: var(--element-bg);
+      border-radius: 12px; border: 1px solid var(--border);
+    }
+    .info-item { display: flex; flex-direction: column; align-items: center; }
+    .info-item strong {
+      color: var(--muted); font-size: 10px; text-transform: uppercase;
+      letter-spacing: 0.08em; margin-bottom: 6px;
+    }
+    .info-value {
+      font-family: 'IBM Plex Mono', monospace; font-size: 14px;
+      color: var(--accent); font-weight: 600;
+    }
+
+    .header-metrics {
+      display: flex; align-items: center; justify-content: center; gap: 48px;
+      margin-top: 24px; background: var(--surface); padding: 20px 40px;
+      border-radius: 16px; border: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    /* ── Overall Gauge ── */
+    .gauge-wrap { text-align: center; }
+    .gauge-ring {
+      width: 90px; height: 90px; border-radius: 50%;
+      background: conic-gradient(var(--accent) 0deg, var(--track-bg) 0deg);
+      display: flex; align-items: center; justify-content: center;
+      position: relative; margin: 0 auto;
+    }
+    .gauge-ring::after { content: ''; position: absolute; width: 70px; height: 70px; border-radius: 50%; background: var(--surface); }
+    .gauge-pct { position: relative; z-index: 1; font-size: 18px; font-weight: 700; color: var(--accent); font-family: 'IBM Plex Mono', monospace; }
+    .gauge-label { font-size: 11px; color: var(--muted); margin-top: 8px; text-transform: uppercase; letter-spacing: 0.08em; }
+
+    /* ── Macro Farol ── */
+    .macro-farol-wrap { text-align: center; }
+    .macro-farol {
+      display: flex; background: var(--farol-bg); padding: 8px 16px; border-radius: 12px; gap: 16px;
+      border: 1px solid var(--border); box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .mf-item { display: flex; align-items: center; gap: 8px; opacity: 0.3; transition: opacity 0.3s; }
+    .mf-item.active { opacity: 1; }
+    .mf-item span { font-size: 12px; font-weight: 600; color: var(--muted); }
+    .mf-item.active span { color: var(--text); }
+    .mf-light { width: 14px; height: 14px; border-radius: 50%; }
+
+    /* ── Main Table ── */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { background: var(--element-bg); }
+    thead th { padding: 10px 16px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--border); }
+    .stage-row { cursor: pointer; transition: background 0.15s; border-bottom: 1px solid var(--border); }
+    .stage-row:hover { background: var(--element-bg); }
+    .stage-row td { padding: 14px 16px; vertical-align: middle; }
+
+    .stage-name { width: 260px; }
+    .stage-name strong { font-size: 13px; }
+    .weight-col { width: 60px; text-align: center; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
+    .status-col { width: 220px; display: flex; align-items: center; gap: 6px; }
+
+    .expand-icon { font-size: 9px; margin-right: 8px; color: var(--muted); transition: transform 0.2s; display: inline-block; }
+    .expanded .expand-icon { transform: rotate(90deg); }
+
+    /* ── Progress Bar ── */
+    .pbar-wrap { height: 6px; border-radius: 3px; background: var(--track-bg); overflow: hidden; margin-bottom: 4px; width: 180px; }
+    .pbar-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+    .pct-label { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
+
+    /* ── Farol (Semáforo) ── */
+    .dot { display: inline-block; border-radius: 50%; flex-shrink: 0; vertical-align: middle; }
+    .farol {
+      display: inline-flex; background: var(--farol-bg); padding: 4px; border-radius: 12px; gap: 4px;
+      border: 1px solid var(--border); box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .farol-luz { width: 12px; height: 12px; border-radius: 50%; opacity: 0.15; transition: all 0.3s ease; }
+
+    /* ── Detail Section ── */
+    .detail-section td { padding: 0 !important; }
+    .detail-inner { border-top: 1px solid var(--border); background: var(--bg); }
+    .inner-table thead th { background: var(--element-bg); font-size: 10px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+    .task-row td { padding: 8px 14px; font-size: 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .subtask-row { background: var(--surface); }
+    .task-row:last-child td { border-bottom: none; }
+    .resp-col { color: var(--muted); font-size: 11px; max-width: 180px; }
+    .date-col { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .remarks-col { max-width: 250px; font-size: 11px; color: var(--muted); word-wrap: break-word; }
+    .status-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; white-space: nowrap; }
+    code { background: var(--element-bg); border-radius: 4px; padding: 1px 5px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--accent); border: 1px solid var(--border); }
+
+    /* ── Footer ── */
+    .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Upload Zone -->
+  <div class="upload-box" id="dropZone" onclick="document.getElementById('fileInput').click()">
+    <strong>📂 Clique ou arraste uma planilha Excel (.xlsx)</strong>
+    <p>O relatório Farol PMO será gerado e atualizado instantaneamente no navegador.</p>
+    <input type="file" id="fileInput" accept=".xlsx, .xls" />
+  </div>
+
+  <div id="reportContainer" style="display: none;">
+    <div class="header">
+      <h1>Farol PMO — Implementation Report</h1>
+      <div class="sub" id="headerSub">Arquivo: Carregado &nbsp;·&nbsp; Gerado hoje</div>
+      
+      <div class="action-row">
+        <button onclick="toggleTheme()" class="btn">🌓 Alternar Modo Claro/Escuro</button>
+      </div>
+
+      <div class="project-info">
+        <div class="info-item"><strong>Responsável</strong><span class="info-value" id="metaResp">—</span></div>
+        <div class="info-item"><strong>Última Atualização</strong><span class="info-value" id="metaUpdate">—</span></div>
+        <div class="info-item"><strong>Go-Live (Wave 1)</strong><span class="info-value" id="metaGoLive">—</span></div>
+        <div class="info-item"><strong>Project Closure</strong><span class="info-value" id="metaClosure">—</span></div>
+      </div>
+
+      <div class="header-metrics">
+        <div class="gauge-wrap">
+          <div class="gauge-ring" id="gaugeRing"><span class="gauge-pct" id="gaugePct">0%</span></div>
+          <div class="gauge-label">Conclusão Geral</div>
+        </div>
+        
+        <div class="macro-farol-wrap">
+          <div class="macro-farol" id="macroFarol"></div>
+          <div class="gauge-label">Status do Projeto</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Etapa</th>
+            <th>Peso</th>
+            <th>Progresso</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="stagesTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="footer">
+      <span id="footerGenerated">Farol PMO Web</span>
+      <span>Pesos: Initiation 5% · Contrato 10% · Cadastros 10% · Go Live 10% · Design 30% · Systems 30% · Evaluation 5%</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  const STAGE_WEIGHTS = [
+    { label: "Initiation",                    weight: 0.05, min: 201, max: 299 },
+    { label: "Design Mapeamento operacional", weight: 0.30, min: 401, max: 499 },
+    { label: "Contrato",                      weight: 0.10, min: 301, max: 399 },
+    { label: "Systems (execução)",            weight: 0.30, min: 503, max: 503 },
+    { label: "Cadastros",                     weight: 0.10, min: 502, max: 502 },
+    { label: "Go Live",                       weight: 0.10, min: 601, max: 699 },
+    { label: "Evaluation",                    weight: 0.05, min: 701, max: 799 }
+  ];
+
+  const STATUS_SCORE = {
+    "finished": 1.0, "on track": 0.5, "not started": 0.0,
+    "postponed": 0.3, "delayed": 0.3, "overdue": 0.1, "on hold": 0.0
+  };
+
+  const COLOR_HEX = {
+    green: "#22c55e", yellow: "#eab308", red: "#ef4444", blue: "#3b82f6", gray: "#94a3b8"
+  };
+
+  const COLOR_LABEL = {
+    green: "On Track", yellow: "Atenção", red: "Atrasado", blue: "Concluído", gray: "Não Iniciado"
+  };
+
+  function parseDate(val) {
+    if (!val) return null;
+    if (val instanceof Date) return val;
+    if (typeof val === 'number') {
+      return new Date(Math.round((val - 25569) * 86400 * 1000));
+    }
+    const str = String(val).trim();
+    const parts = str.split(/[\/\-]/);
+    if (parts.length === 3) {
+      if (parts[0].length === 4) return new Date(parts[0], parts[1]-1, parts[2]);
+      return new Date(parts[2], parts[1]-1, parts[0]);
+    }
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  function formatDate(d) {
+    if (!d) return "—";
+    const dt = parseDate(d);
+    if (!dt || isNaN(dt.getTime())) return String(d);
+    const day = String(dt.getDate()).padStart(2, '0');
+    const month = String(dt.getMonth() + 1).padStart(2, '0');
+    const year = dt.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
+  function statusColor(statusNorm, endDate) {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const end = endDate ? parseDate(endDate) : null;
+
+    if (statusNorm.includes("finished")) return "blue";
+    if (statusNorm.includes("on track")) {
+      if (end) {
+        const delta = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
+        if (delta < 0) return "red";
+        if (delta <= 2) return "yellow";
+      }
+      return "green";
+    }
+    if (statusNorm.includes("overdue")) return "red";
+    if (statusNorm.includes("delayed") || statusNorm.includes("postponed")) return "yellow";
+    if (statusNorm.includes("not started") || statusNorm.includes("on hold")) return "gray";
+
+    if (end) {
+      const delta = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
+      if (delta < 0) return "red";
+      if (delta <= 2) return "yellow";
+    }
+    return "gray";
+  }
+
+  function processWorkbook(wb, fileName) {
+    const sheetName = wb.SheetNames.find(s => s.toLowerCase().includes("implementation plan")) || wb.SheetNames[0];
+    const sheet = wb.Sheets[sheetName];
+    const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, dateNF: 'yyyy-mm-dd' });
+
+    let latestUpdate = "Não informado";
+    let responsible = "Não informado";
+
+    // 1. Extract Top Metadata
+    for (let r = 0; r <= Math.min(5, rawData.length - 1); r++) {
+      const row = rawData[r] || [];
+      for (let i = 0; i < row.length; i++) {
+        const cellStr = String(row[i] || "").trim().toLowerCase();
+        if (cellStr.startsWith("latest update")) {
+          if (String(row[i]).includes(":")) {
+            const parts = String(row[i]).split(":");
+            if (parts[1] && parts[1].trim()) { latestUpdate = formatDate(parts[1].trim()); continue; }
+          }
+          for (let k = i + 1; k < Math.min(i + 6, row.length); k++) {
+            if (row[k] && String(row[k]).trim()) { latestUpdate = formatDate(row[k]); break; }
+          }
+        } else if (cellStr.startsWith("responsible")) {
+          if (String(row[i]).includes(":")) {
+            const parts = String(row[i]).split(":");
+            if (parts[1] && parts[1].trim()) { responsible = parts[1].trim(); continue; }
+          }
+          for (let k = i + 1; k < Math.min(i + 8, row.length); k++) {
+            const val = String(row[k] || "").trim();
+            if (val && !val.toLowerCase().includes("overdue")) { responsible = val; break; }
+          }
+        }
+      }
+    }
+
+    // 2. Extract Task Rows
+    const tasks = [];
+    for (let r = 6; r < rawData.length; r++) {
+      const row = rawData[r] || [];
+      const taskId = String(row[1] || "").trim();
+      const subtaskId = String(row[2] || "").trim();
+      const taskName = String(row[3] || "").trim();
+      const resp = String(row[4] || "").trim();
+      const startDate = row[5] || null;
+      const endDate = row[6] || null;
+      const days = row[7] || "";
+      const statusRaw = String(row[8] || "").trim();
+      const remarks = String(row[9] || "").trim();
+
+      if (!taskName || /Task ID|Sub Task ID/i.test(taskName)) continue;
+
+      let taskNum = null;
+      if (taskId && !isNaN(parseInt(taskId))) taskNum = parseInt(taskId);
+      else if (subtaskId) {
+        const p = parseInt(subtaskId.split(".")[0]);
+        if (!isNaN(p)) taskNum = p;
+      }
+
+      const statusNorm = statusRaw.toLowerCase();
+      tasks.push({
+        taskId, subtaskId, taskNum, taskName, responsible: resp,
+        startDate, endDate, days, statusRaw, statusNorm, remarks,
+        color: statusColor(statusNorm, endDate)
+      });
+    }
+
+    // 3. Extract Milestones
+    const m602 = tasks.find(t => t.taskId === "602");
+    const m706 = tasks.find(t => t.taskId === "706");
+    const goLiveDate = m602 ? formatDate(m602.endDate) : "Não definido";
+    const closureDate = m706 ? formatDate(m706.endDate) : "Não definido";
+
+    // 4. Build Stages
+    const stages = STAGE_WEIGHTS.map(conf => {
+      const subset = tasks.filter(t => t.taskNum !== null && t.taskNum >= conf.min && t.taskNum <= conf.max);
+      
+      let pct = 0;
+      if (subset.length > 0) {
+        const scores = subset.map(t => {
+          for (let key in STATUS_SCORE) {
+            if (t.statusNorm.includes(key)) return STATUS_SCORE[key];
+          }
+          return 0.0;
+        });
+        const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+        pct = Math.round(avg * 1000) / 10;
+      }
+
+      // Dominant Color
+      let domColor = "gray";
+      const prio = ["red", "yellow", "green", "blue", "gray"];
+      for (let c of prio) {
+        if (subset.some(t => t.color === c)) { domColor = c; break; }
+      }
+
+      return {
+        label: conf.label,
+        weight: conf.weight,
+        pct: pct,
+        color: domColor,
+        tasks: subset
+      };
+    });
+
+    renderDashboard(fileName, { latestUpdate, responsible, goLiveDate, closureDate }, stages);
+  }
+
+  function renderDashboard(fileName, meta, stages) {
+    const overallPct = Math.round(stages.reduce((acc, s) => acc + (s.pct * s.weight), 0) * 10) / 10;
+    
+    let overallColor = "gray";
+    for (let c of ["red", "yellow", "green", "blue"]) {
+      if (stages.some(s => s.color === c)) { overallColor = c; break; }
+    }
+
+    const todayStr = formatDate(new Date());
+
+    document.getElementById("headerSub").textContent = `Arquivo: ${fileName} · Gerado em: ${todayStr}`;
+    document.getElementById("footerGenerated").textContent = `Farol PMO Web · ${todayStr}`;
+    document.getElementById("metaResp").textContent = meta.responsible;
+    document.getElementById("metaUpdate").textContent = meta.latestUpdate;
+    document.getElementById("metaGoLive").textContent = meta.goLiveDate;
+    document.getElementById("metaClosure").textContent = meta.closureDate;
+
+    // Gauge Update
+    document.getElementById("gaugePct").textContent = `${overallPct}%`;
+    document.getElementById("gaugeRing").style.background = `conic-gradient(var(--accent) calc(${overallPct} * 3.6deg), var(--track-bg) 0deg)`;
+
+    // Macro Farol
+    const mfItems = [
+      { c: 'blue', label: 'Concluído' },
+      { c: 'green', label: 'On track' },
+      { c: 'red', label: 'Atrasado' },
+      { c: 'gray', label: 'Não iniciado' }
+    ].map(item => {
+      const active = item.c === overallColor ? 'active' : '';
+      const hex = COLOR_HEX[item.c];
+      const shadow = active ? `box-shadow: 0 0 8px ${hex};` : '';
+      return `<div class="mf-item ${active}"><div class="mf-light" style="background:${hex}; ${shadow}"></div><span>${item.label}</span></div>`;
+    }).join("");
+    document.getElementById("macroFarol").innerHTML = mfItems;
+
+    // Stages Table
+    let tableHtml = "";
+    stages.forEach((s, idx) => {
+      const hex = COLOR_HEX[s.color];
+      
+      let taskRows = s.tasks.map(t => {
+        const tc = COLOR_HEX[t.color] || "#94a3b8";
+        const isSub = Boolean(t.subtaskId);
+        const indent = isSub ? "padding-left:28px" : "";
+        const prefix = isSub ? "└ " : "";
+        const idDisplay = isSub ? t.subtaskId : t.taskId;
+        const subClass = isSub ? "subtask-row" : "";
+        const dot = `<span class="dot" style="background:${tc};width:10px;height:10px;box-shadow:0 0 6px ${tc}88"></span>`;
+
+        return `
+          <tr class="task-row ${subClass}">
+            <td style="${indent}">${dot} ${prefix}<code>${idDisplay}</code></td>
+            <td style="color: var(--text)">${t.taskName}</td>
+            <td class="resp-col">${t.responsible}</td>
+            <td class="date-col">${formatDate(t.startDate)}</td>
+            <td class="date-col">${formatDate(t.endDate)}</td>
+            <td><span class="status-badge" style="background:${tc}22;color:${tc};border:1px solid ${tc}44">${t.statusRaw}</span></td>
+            <td class="remarks-col">${t.remarks}</td>
+          </tr>
+        `;
+      }).join("");
+
+      // Farol indicator for stage
+      const lights = ["gray", "red", "yellow", "green", "blue"].map(c => {
+        const lhex = COLOR_HEX[c];
+        const style = c === s.color ? `background:${lhex}; opacity:1; box-shadow:0 0 8px ${lhex}` : `background:${lhex};`;
+        return `<div class="farol-luz" style="${style}"></div>`;
+      }).join("");
+
+      tableHtml += `
+        <tr class="stage-row" onclick="toggleDetail('detail-${idx}')">
+          <td class="stage-name"><span class="expand-icon">▶</span><strong style="color: var(--text)">${s.label}</strong></td>
+          <td class="weight-col">${Math.round(s.weight * 100)}%</td>
+          <td>
+            <div class="pbar-wrap"><div class="pbar-fill" style="width:${s.pct}%;background:${hex}"></div></div>
+            <span class="pct-label">${s.pct}%</span>
+          </td>
+          <td class="status-col">
+            <div class="farol">${lights}</div>
+            <span style="color:${hex};font-weight:600;font-size:12px;margin-left:8px">${COLOR_LABEL[s.color]}</span>
+          </td>
+        </tr>
+        <tr id="detail-${idx}" class="detail-section" style="display:none">
+          <td colspan="4">
+            <div class="detail-inner">
+              <table class="inner-table">
+                <thead>
+                  <tr><th>ID</th><th>Task / Subtask</th><th>Responsável</th><th>Início</th><th>Fim</th><th>Status</th><th>Comentários</th></tr>
+                </thead>
+                <tbody>${taskRows}</tbody>
+              </table>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+
+    document.getElementById("stagesTableBody").innerHTML = tableHtml;
+    document.getElementById("reportContainer").style.display = "block";
+  }
+
+  function toggleDetail(id) {
+    const el = document.getElementById(id);
+    const row = el.previousElementSibling;
+    const isVisible = el.style.display !== 'none';
+    el.style.display = isVisible ? 'none' : 'table-row';
+    row.classList.toggle('expanded', !isVisible);
+  }
+
+  function toggleTheme() {
+    document.body.classList.toggle('light-theme');
+  }
+
+  // File Upload Handlers
+  const fileInput = document.getElementById('fileInput');
+  const dropZone = document.getElementById('dropZone');
+
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) handleFile(file);
+  });
+
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  });
+
+  function handleFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      processWorkbook(workbook, file.name);
+    };
+    reader.readAsArrayBuffer(file);
+  }
+</script>
+</body>
+</html>
