@@ -3,239 +3,977 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Farol PMO — Implementation Report</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2242%22 fill=%22%2322c55e%22/></svg>">
+<title>Demonstrativo de Faturamento · DSV</title>
+<!-- SheetJS para LEITURA dos arquivos de origem -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- ExcelJS e FileSaver para EXPORTAÇÃO estilizada da Capa -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap');
+:root{
+  --dsv-blue:#002664;
+  --dsv-blue-mid:#4B87E0;
+  --dsv-white:#FFFFFF;
+  --dsv-black:#000000;
+  --grey-dark:#2F3135;
+  --grey-mid:#646768;
+  --grey-light:#CDD0D3;
+  --grey-off:#EFF0F0;
+  --orange:#C64801;
+  --green:#00682A;
+  --green-mid:#199049;
+  --yellow:#FFCA0C;
+  --radius:6px;
+  --shadow:0 1px 3px rgba(0,38,100,0.12), 0 1px 2px rgba(0,38,100,0.08);
+}
+*{box-sizing:border-box;}
+body{
+  margin:0; font-family:"Segoe UI",Arial,Helvetica,sans-serif;
+  background:var(--grey-off); color:var(--grey-dark); font-size:14px;
+  line-height:1.45;
+}
+header.topbar{
+  background:var(--dsv-blue); color:var(--dsv-white);
+  padding:18px 28px; display:flex; align-items:center; justify-content:space-between;
+  box-shadow:var(--shadow);
+}
+header.topbar .brand{display:flex; align-items:center; gap:12px;}
+header.topbar .brand .logo{
+  font-weight:800; font-size:20px; letter-spacing:1px;
+  background:var(--dsv-white); color:var(--dsv-blue);
+  padding:4px 10px; border-radius:4px;
+}
+header.topbar h1{font-size:16px; font-weight:600; margin:0;}
+header.topbar .sub{font-size:12px; color:var(--grey-light); margin-top:2px;}
+main{max-width:1180px; margin:0 auto; padding:24px 20px 80px;}
 
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+.card{
+  background:var(--dsv-white); border-radius:var(--radius); box-shadow:var(--shadow);
+  padding:20px 22px; margin-bottom:20px; border:1px solid var(--grey-light);
+}
+.card h2{
+  margin:0 0 4px; font-size:15px; color:var(--dsv-blue); font-weight:700;
+  display:flex; align-items:center; gap:8px;
+}
+.card h2 .step{
+  background:var(--dsv-blue); color:#fff; width:22px; height:22px; border-radius:50%;
+  display:inline-flex; align-items:center; justify-content:center; font-size:12px;
+}
+.card .desc{color:var(--grey-mid); font-size:12.5px; margin:0 0 16px;}
 
-  /* ── TEMA ESCURO (Padrão) ── */
-  :root {
-    --bg:         #0d1117;
-    --surface:    #161b22;
-    --border:     #30363d;
-    --text:       #e6edf3;
-    --muted:      #8b949e;
-    --accent:     #58a6ff;
-    --element-bg: #1c2128;
-    --farol-bg:   #11151a;
-    --track-bg:   #21262d;
-  }
+.grid{display:grid; gap:14px;}
+.grid.cols-2{grid-template-columns:1fr 1fr;}
+.grid.cols-3{grid-template-columns:1fr 1fr 1fr;}
+.grid.cols-4{grid-template-columns:1fr 1fr 1fr 1fr;}
+@media(max-width:820px){.grid.cols-2,.grid.cols-3,.grid.cols-4{grid-template-columns:1fr;}}
 
-  /* ── TEMA CLARO ── */
-  body.light-theme {
-    --bg:         #f6f8fa;
-    --surface:    #ffffff;
-    --border:     #d0d7de;
-    --text:       #1f2328;
-    --muted:      #656d76;
-    --accent:     #0969da;
-    --element-bg: #f3f4f6;
-    --farol-bg:   #e5e7eb;
-    --track-bg:   #e5e7eb;
-  }
+label{display:block; font-size:11.5px; font-weight:600; color:var(--grey-mid); margin-bottom:4px; text-transform:uppercase; letter-spacing:.3px;}
+input[type=text],input[type=number],input[type=file],select{
+  width:100%; padding:9px 10px; border:1px solid var(--grey-light); border-radius:4px;
+  font-size:13.5px; background:#fff; color:var(--grey-dark);
+}
+textarea{
+  width:100%; padding:9px 10px; border:1px solid var(--grey-light); border-radius:4px;
+  font-size:13.5px; background:#fff; color:var(--grey-dark); font-family:inherit; resize:vertical;
+}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--dsv-blue-mid); outline-offset:1px; border-color:var(--dsv-blue-mid);}
+input[readonly]{background:var(--grey-off); color:var(--grey-mid);}
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 14px;
-    min-height: 100vh;
-    padding: 32px 24px;
-    transition: background-color 0.3s, color 0.3s;
-  }
+.file-row{display:flex; flex-direction:column; gap:6px; padding:12px; border:1px dashed var(--grey-light); border-radius:6px; background:var(--grey-off);}
+.file-row .status{font-size:11.5px; color:var(--grey-mid);}
+.file-row .status.ok{color:var(--green); font-weight:600;}
 
-  .container { max-width: 1200px; margin: 0 auto; }
+button{
+  cursor:pointer; border:none; border-radius:4px; padding:10px 18px; font-size:13.5px; font-weight:600;
+  background:var(--dsv-blue); color:#fff; transition:background .15s ease;
+}
+button:hover{background:#001c4c;}
+button.secondary{background:#fff; color:var(--dsv-blue); border:1px solid var(--dsv-blue);}
+button.secondary:hover{background:var(--grey-off);}
+button.small{padding:5px 10px; font-size:12px;}
+button.danger{background:#fff; color:var(--orange); border:1px solid var(--orange);}
+button:disabled{opacity:.45; cursor:not-allowed;}
 
-  /* ── Header Centralizado ── */
-  .header {
-    display: flex; flex-direction: column; align-items: center; text-align: center;
-    margin-bottom: 32px; padding-bottom: 32px; border-bottom: 1px solid var(--border);
-  }
-  .header h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: var(--text); }
-  .header .sub { color: var(--muted); font-size: 12px; margin-top: 6px; font-family: 'IBM Plex Mono', monospace; }
+table{width:100%; border-collapse:collapse; font-size:13px;}
+th,td{padding:8px 9px; border-bottom:1px solid var(--grey-light); text-align:left; vertical-align:middle;}
+th{background:var(--grey-off); font-size:11px; text-transform:uppercase; letter-spacing:.3px; color:var(--grey-mid); font-weight:700;}
+td input, td select{padding:6px 7px; font-size:12.5px;}
+tr.origem-cw1 td:first-child{border-left:3px solid var(--dsv-blue-mid);}
+tr.origem-manual td:first-child{border-left:3px solid var(--grey-light);}
+.badge{display:inline-block; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:10px; text-transform:uppercase;}
+.badge.cw1{background:#E7EEFB; color:var(--dsv-blue);}
+.badge.manual{background:var(--grey-off); color:var(--grey-mid);}
 
-  .header-actions { display: flex; gap: 12px; margin-top: 16px; }
+.alert{padding:10px 14px; border-radius:5px; font-size:12.5px; margin:0 0 14px; display:flex; gap:8px; align-items:flex-start;}
+.alert.warn{background:#FFF7E0; border:1px solid var(--yellow); color:#6b5400;}
+.alert.info{background:#E7EEFB; border:1px solid var(--dsv-blue-mid); color:var(--dsv-blue);}
+.alert.ok{background:#E7F6EC; border:1px solid var(--green-mid); color:var(--green);}
+.alert.error{background:#FDECEA; border:1px solid var(--orange); color:var(--orange);}
 
-  .theme-btn {
-    padding: 6px 16px; border-radius: 6px; cursor: pointer;
-    background: var(--surface); color: var(--text); border: 1px solid var(--border);
-    font-family: inherit; font-size: 12px; font-weight: 600;
-    transition: all 0.2s;
-  }
-  .theme-btn:hover { background: var(--element-bg); }
+.totais{display:grid; grid-template-columns:1fr auto; gap:6px 18px; font-size:13.5px;}
+.totais .line{display:contents;}
+.totais .lbl{color:var(--grey-mid);}
+.totais .val{text-align:right; font-variant-numeric:tabular-nums; font-weight:600;}
+.totais .divider{grid-column:1/-1; border-top:1px solid var(--grey-light); margin:6px 0;}
+.totais .total-final .lbl,.totais .total-final .val{color:var(--dsv-blue); font-size:16px; font-weight:800;}
 
-  /* ── Meta Dados do Projeto (Datas e Responsável) ── */
-  .project-info {
-    display: flex; flex-wrap: wrap; gap: 40px; justify-content: center;
-    margin-top: 24px; padding: 16px 32px; background: var(--element-bg);
-    border-radius: 12px; border: 1px solid var(--border);
-  }
-  .info-item { display: flex; flex-direction: column; align-items: center; }
-  .info-item strong {
-    color: var(--muted); font-size: 10px; text-transform: uppercase;
-    letter-spacing: 0.08em; margin-bottom: 6px;
-  }
-  .info-value { font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: var(--accent); font-weight: 600; }
+.toolbar{display:flex; gap:10px; flex-wrap:wrap; margin-top:6px;}
+.foot-note{font-size:11px; color:var(--grey-mid); margin-top:6px;}
+.pill{font-size:11.5px; background:var(--grey-off); border:1px solid var(--grey-light); padding:4px 10px; border-radius:14px; color:var(--grey-mid);}
 
-  .header-metrics {
-    display: flex; align-items: center; justify-content: center; gap: 48px;
-    margin-top: 24px; background: var(--surface); padding: 20px 40px;
-    border-radius: 16px; border: 1px solid var(--border);
-  }
-
-  /* ── Overall gauge ── */
-  .gauge-wrap { text-align: center; }
-  .gauge-ring {
-    width: 90px; height: 90px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    position: relative; margin: 0 auto;
-  }
-  .gauge-ring::after { content: ''; position: absolute; width: 70px; height: 70px; border-radius: 50%; background: var(--surface); }
-  .gauge-pct { position: relative; z-index: 1; font-size: 18px; font-weight: 700; color: var(--accent); font-family: 'IBM Plex Mono', monospace; }
-  .gauge-label { font-size: 11px; color: var(--muted); margin-top: 8px; text-transform: uppercase; letter-spacing: 0.08em; }
-
-  /* ── Macro Farol ── */
-  .macro-farol-wrap { text-align: center; }
-  .macro-farol {
-    display: flex; background: var(--farol-bg); padding: 8px 16px; border-radius: 12px; gap: 16px;
-    border: 1px solid var(--border); box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
-  }
-  .mf-item { display: flex; align-items: center; gap: 8px; opacity: 0.3; transition: opacity 0.3s; }
-  .mf-item.active { opacity: 1; }
-  .mf-item span { font-size: 12px; font-weight: 600; color: var(--muted); }
-  .mf-item.active span { color: var(--text); }
-  .mf-light { width: 14px; height: 14px; border-radius: 50%; }
-
-  /* ── Main table ── */
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
-  table { width: 100%; border-collapse: collapse; }
-  thead tr { background: var(--element-bg); }
-  thead th { padding: 10px 16px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--border); }
-  .stage-row { cursor: pointer; transition: background 0.15s; border-bottom: 1px solid var(--border); }
-  .stage-row:hover { background: var(--element-bg); }
-  .stage-row td { padding: 14px 16px; vertical-align: middle; }
-
-  .stage-name { width: 260px; }
-  .stage-name strong { font-size: 13px; }
-  .weight-col { width: 60px; text-align: center; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
-  .status-col { width: 220px; display: flex; align-items: center; gap: 6px; padding-top: 17px; }
-
-  .expand-icon { font-size: 9px; margin-right: 8px; color: var(--muted); transition: transform 0.2s; display: inline-block; }
-  .expanded .expand-icon { transform: rotate(90deg); }
-
-  /* ── Progress bar ── */
-  .pbar-wrap { height: 6px; border-radius: 3px; background: var(--track-bg); overflow: hidden; margin-bottom: 4px; width: 200px; }
-  .pbar-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
-  .pct-label { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
-
-  /* ── Farol (Semáforo) Etapas ── */
-  .dot { display: inline-block; border-radius: 50%; flex-shrink: 0; vertical-align: middle; }
-  .farol {
-    display: inline-flex; background: var(--farol-bg); padding: 4px; border-radius: 12px; gap: 4px;
-    border: 1px solid var(--border); box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
-  }
-  .farol-luz { width: 12px; height: 12px; border-radius: 50%; opacity: 0.15; transition: all 0.3s ease; }
-
-  /* ── Detail section ── */
-  .detail-section td { padding: 0 !important; }
-  .detail-inner { border-top: 1px solid var(--border); background: var(--bg); padding: 0; }
-  .inner-table thead th { background: var(--element-bg); font-size: 10px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
-  .task-row td { padding: 8px 14px; font-size: 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-  .subtask-row { background: var(--surface); }
-  .task-row:last-child td { border-bottom: none; }
-  .resp-col { color: var(--muted); font-size: 11px; max-width: 180px; }
-  .date-col { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); white-space: nowrap; }
-  .remarks-col { max-width: 250px; font-size: 11px; color: var(--muted); word-wrap: break-word; }
-  .status-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; white-space: nowrap; }
-  code { background: var(--element-bg); border-radius: 4px; padding: 1px 5px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--accent); border: 1px solid var(--border); }
-
-  /* ── Footer ── */
-  .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
-
-  /* ── Upload screen ── */
-  #upload-screen {
-    min-height: 70vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    text-align: center; gap: 8px;
-  }
-  #upload-screen h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 6px; }
-  #upload-screen p.lead { color: var(--muted); font-size: 13px; max-width: 480px; margin-bottom: 28px; line-height: 1.6; }
-  .dropzone {
-    width: 100%; max-width: 480px; border: 2px dashed var(--border); border-radius: 16px;
-    background: var(--surface); padding: 48px 32px; cursor: pointer; transition: all 0.2s;
-  }
-  .dropzone:hover, .dropzone.dragover { border-color: var(--accent); background: var(--element-bg); }
-  .dropzone .icon { font-size: 40px; margin-bottom: 12px; }
-  .dropzone .title { font-weight: 600; font-size: 14px; color: var(--text); margin-bottom: 4px; }
-  .dropzone .hint { font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
-  #file-input { display: none; }
-  #upload-error {
-    display: none; margin-top: 20px; padding: 12px 18px; border-radius: 8px;
-    background: #ef444422; border: 1px solid #ef444444; color: #ef4444;
-    font-size: 12px; max-width: 480px;
-  }
-  .privacy-note { margin-top: 24px; font-size: 11px; color: var(--muted); max-width: 480px; }
+@media print{
+  header.topbar,.no-print{display:none !important;}
+  body{background:#fff;}
+  .card{box-shadow:none; border:1px solid #ccc; break-inside:avoid; margin-bottom: 10px;}
+  main{padding:0;}
+  /* Destaque visual da borda do campo editável some na impressão */
+  #dRefCliente { border: none !important; padding: 0 !important; font-size: 13.5px !important; background: transparent !important; }
+}
 </style>
 </head>
 <body>
-<div class="container">
 
-  <div id="upload-screen">
-    <h1>Farol PMO</h1>
-    <p class="lead">Carregue a planilha <strong>Implementation Plan</strong> (.xlsx) para gerar o painel de acompanhamento. Tudo é processado localmente, no seu navegador.</p>
-
-    <label class="dropzone" id="dropzone" for="file-input">
-      <div class="icon">📊</div>
-      <div class="title">Arraste o arquivo .xlsx aqui</div>
-      <div class="hint">ou clique para selecionar</div>
-    </label>
-    <input type="file" id="file-input" accept=".xlsx,.xlsm,.xls">
-
-    <div id="upload-error"></div>
-    <div class="privacy-note">O arquivo nunca sai do seu computador — não há upload para nenhum servidor.</div>
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">DSV</div>
+    <div>
+      <h1>Demonstrativo de Faturamento</h1>
+      <div class="sub">Aplicação de geração da Capa de Faturamento · Import/Export & Customs Systems</div>
+    </div>
   </div>
+  <div class="toolbar no-print">
+    <button class="secondary small" id="btnLimpar">Limpar tudo</button>
+  </div>
+</header>
 
-  <div id="report-root" style="display:none"></div>
+<main>
 
-</div>
+  <!-- PASSO 1: UPLOAD DE ARQUIVOS (Oculto no PDF) -->
+  <section class="card no-print">
+    <h2><span class="step">1</span> Carregar dados de origem</h2>
+    <p class="desc">Envie os arquivos exportados e cole os dados do CW1 diretamente da tabela.</p>
+    <div class="grid cols-2">
+      <div class="file-row">
+        <label>Relatório FollowNet</label>
+        <input type="file" id="fileFollowNet" accept=".xlsx,.xls,.csv">
+        <span class="status" id="statusFollowNet">Nenhum arquivo carregado</span>
+      </div>
+      <div class="file-row">
+        <label>Tabela Clientes</label>
+        <input type="file" id="fileClientes" accept=".xlsx,.xls,.csv">
+        <span class="status" id="statusClientes">Nenhum arquivo carregado</span>
+      </div>
+    </div>
+    <div class="file-row" style="margin-top:14px;">
+      <label>CW1 (Copiar e Colar)</label>
+      <textarea id="pasteCW1" rows="4" placeholder="Cole aqui as colunas copiadas diretamente do Excel (ex: Debtor, Job Num., etc)..."></textarea>
+      <span class="status" id="statusCW1">Aguardando dados...</span>
+    </div>
+  </section>
 
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="app.js"></script>
+  <!-- PASSO 2: CRUZAMENTO AUTOMÁTICO (Oculto no PDF) -->
+  <section class="card no-print">
+    <h2><span class="step">2</span> Cruzamento de Dados</h2>
+    <p class="desc">A aplicação fará o cruzamento automático do <strong>Job Num.</strong> (CW1) com o <strong>Nr. Processo</strong> (FollowNet) para identificar o processo e a Referência do Cliente.</p>
+    <div class="toolbar">
+      <button id="btnBuscar">Realizar Cruzamento e Gerar</button>
+    </div>
+    <div id="alertaBusca" style="margin-top:14px;"></div>
+  </section>
+
+  <!-- DADOS DO CLIENTE / PROCESSO -->
+  <section class="card" id="cardDados" style="display:none;">
+    <h2>Dados do Cliente e do Processo</h2>
+    <div class="grid cols-3">
+      <div><label>Cliente</label><input type="text" id="dCliente" readonly></div>
+      <div><label>Vendor</label><input type="text" id="dVendor" readonly></div>
+      <div><label>CNPJ</label><input type="text" id="dCNPJ" readonly></div>
+      <div><label>Endereço</label><input type="text" id="dEndereco" readonly></div>
+      <div><label>Bairro</label><input type="text" id="dBairro" readonly></div>
+      <div><label>Cidade</label><input type="text" id="dCidade" readonly></div>
+    </div>
+    <div class="grid cols-4" style="margin-top:14px;">
+      <div><label>Nr. Processo</label><input type="text" id="dProcesso" readonly></div>
+      <!-- CAMPO EDITÁVEL -->
+      <div><label>Ref. Cliente <span class="pill no-print" style="margin-left:4px; padding:2px 6px; font-size:9px; background:#E7EEFB; color:var(--dsv-blue-mid); border:none;">editável</span></label><input type="text" id="dRefCliente" style="border-color:var(--dsv-blue-mid);"></div>
+      <div><label id="lblDUE">Nr. DUE</label><input type="text" id="dDUE" readonly></div>
+      <div><label>Importador</label><input type="text" id="dImportador" readonly></div>
+      <div><label>Agente</label><input type="text" id="dAgente" readonly></div>
+      <div><label>Incoterm</label><input type="text" id="dIncoterm" readonly></div>
+      <div><label>Navio</label><input type="text" id="dNavio" readonly></div>
+      <div><label>Via de Transporte</label><input type="text" id="dVia" readonly></div>
+      <div><label>House</label><input type="text" id="dHouse" readonly></div>
+      <div><label>Master</label><input type="text" id="dMaster" readonly></div>
+      <div><label>CIF R$</label><input type="text" id="dCIF" readonly></div>
+      <div><label>FOB USD</label><input type="text" id="dFOB" readonly></div>
+      <div><label>Frete R$</label><input type="text" id="dFrete" readonly></div>
+    </div>
+  </section>
+
+  <!-- DESPESAS NÃO TRIBUTÁVEIS (CW1) -->
+  <section class="card" id="cardDespesas" style="display:none;">
+    <h2>Discriminação das Despesas não Tributáveis (CW1)</h2>
+    <table id="tabelaDespesas">
+      <thead>
+        <tr>
+          <th>Origem</th>
+          <th>Descrição</th>
+          <th>Categoria</th>
+          <th>Pago pelo Cliente (R$)</th>
+          <th>Pago pela Comissária (R$)</th>
+          <th class="no-print"></th>
+        </tr>
+      </thead>
+      <tbody id="corpoDespesas"></tbody>
+    </table>
+    <div class="toolbar no-print" style="margin-top:10px;">
+      <button class="secondary small" id="btnAddDespesa">+ Adicionar linha manual</button>
+    </div>
+  </section>
+
+  <!-- LANÇAMENTOS AVULSOS / TABELA DE DESPESAS MANUAL -->
+  <section class="card" id="cardDespesasManuais" style="display:none;">
+    <h2>Lançamentos Avulsos (Despesas / Serviços)</h2>
+    <table id="tabelaDespesasManuais">
+      <thead>
+        <tr>
+          <th>Tipo</th>
+          <th>Nome / Descrição da Despesa</th>
+          <th>Valor (R$)</th>
+          <th class="no-print"></th>
+        </tr>
+      </thead>
+      <tbody id="corpoDespesasManuais"></tbody>
+    </table>
+    <div class="toolbar no-print" style="margin-top:10px;">
+      <button class="secondary small" id="btnAddDespesaManual">+ Adicionar Lançamento</button>
+    </div>
+  </section>
+
+  <!-- SERVIÇOS TRIBUTÁVEIS -->
+  <section class="card" id="cardServicos" style="display:none;">
+    <h2>Discriminação dos Serviços Tributáveis</h2>
+    <table>
+      <thead>
+        <tr><th>Serviço</th><th>Valor Bruto (R$)</th><th>Valor Líquido (R$)</th><th></th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Serviços Profissionais de Despachante</td>
+          <td><input type="number" step="0.01" id="svDespachanteBruto"></td>
+          <td><input type="text" id="svDespachanteLiquido" readonly></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>Gerenciamento PO <span class="pill" style="margin-left:4px;">campo editável</span></td>
+          <td><input type="number" step="0.01" id="svPOBruto" value="327.60"></td>
+          <td><input type="text" id="svPOLiquido" readonly></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>Compesation Fee <span class="pill" style="margin-left:4px;">automático</span></td>
+          <td><input type="number" step="0.01" id="svFeeBruto"></td>
+          <td><input type="text" id="svFeeLiquido" readonly></td>
+          <td><button class="secondary small no-print" id="btnRecalcFee">Recalcular</button></td>
+        </tr>
+      </tbody>
+      <tbody id="corpoServicosExtra"></tbody>
+    </table>
+    <div class="toolbar no-print" style="margin-top:10px;">
+      <button class="secondary small" id="btnAddServico">+ Adicionar serviço tributável</button>
+    </div>
+  </section>
+
+  <!-- ADIANTAMENTOS -->
+  <section class="card" id="cardAdiant" style="display:none;">
+    <h2>Adiantamentos</h2>
+    <table>
+      <thead><tr><th>Descrição</th><th>Valor (R$)</th></tr></thead>
+      <tbody id="corpoAdiant"></tbody>
+    </table>
+  </section>
+
+  <!-- VALIDAÇÃO CUSTEIO MULT -->
+  <section class="card" id="cardValidacao" style="display:none;">
+    <h2>Validação Custeio Mult</h2>
+    <div id="validacaoResultado"></div>
+  </section>
+
+  <!-- RESUMO / TOTAIS -->
+  <section class="card" id="cardResumo" style="display:none;">
+    <h2>Resumo e Tributos</h2>
+    <div class="totais" id="totaisBox"></div>
+    <div class="toolbar no-print" style="margin-top:18px;">
+      <button id="btnImprimir">Imprimir / Salvar PDF</button>
+      <button class="secondary" id="btnExportarXLS">Exportar Capa Oficial (XLSX)</button>
+    </div>
+    <p class="foot-note">Cálculos: PIS 0,65% e COFINS 3% e CSLL 1% sobre Despachante + Gerenciamento PO ·
+      IRRF 1,5% sobre o total bruto dos serviços tributáveis · Gross-up: Bruto = Líquido ÷ 0,8575.</p>
+  </section>
+
+</main>
+
 <script>
-  (function () {
-    try {
-      if (localStorage.getItem("farol-theme") === "light") {
-        document.body.classList.add("light-theme");
-      }
-    } catch (e) {}
+/* =========================================================================
+   MOTOR DE CÁLCULO
+   ========================================================================= */
+const FATOR_GROSS_UP = 0.8575;
+const ALIQ_PIS = 0.0065;
+const ALIQ_COFINS = 0.03;
+const ALIQ_CSLL = 0.01;
+const ALIQ_IRRF = 0.015;
+const ALIQ_COMPENSATION_FEE = 0.015;
 
-    const input = document.getElementById("file-input");
-    const dropzone = document.getElementById("dropzone");
+const fmt = n => (isFinite(n)?n:0).toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2});
+const round2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
+const soDigitos = s => (s || '').toString().replace(/\D/g,'');
+const escapeAttr = s => (s||'').toString().replace(/"/g,'&quot;');
 
-    input.addEventListener("change", function () {
-      if (input.files && input.files[0]) {
-        window.processWorkbookFile(input.files[0]);
-      }
+let DB = { followNet: [], clientes: [], cw1: [] };
+let ESTADO = {
+  processo: null, cliente: null,
+  despesas: [],     
+  adiantamentos: [],
+  lancamentosAvulsos: [] 
+};
+
+/* ---------- Leitura de planilhas e Input ---------- */
+function lerArquivo(file, rangeOffset, callback){
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, {defval:'', range: rangeOffset});
+    callback(rows);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function ligarUpload(inputId, statusId, destKey, rangeOffset = 0){
+  document.getElementById(inputId).addEventListener('change', (ev) => {
+    const file = ev.target.files[0];
+    const statusEl = document.getElementById(statusId);
+    if(!file){ statusEl.textContent='Nenhum arquivo carregado'; statusEl.className='status'; return; }
+    lerArquivo(file, rangeOffset, (rows) => {
+      DB[destKey] = rows;
+      statusEl.textContent = `${rows.length} linha(s) carregada(s) — ${file.name}`;
+      statusEl.className = 'status ok';
     });
+  });
+}
+ligarUpload('fileFollowNet','statusFollowNet','followNet', 2);
+ligarUpload('fileClientes','statusClientes','clientes', 0);
 
-    ["dragenter", "dragover"].forEach((evt) =>
-      dropzone.addEventListener(evt, function (e) {
-        e.preventDefault();
-        dropzone.classList.add("dragover");
-      })
-    );
-    ["dragleave", "drop"].forEach((evt) =>
-      dropzone.addEventListener(evt, function (e) {
-        e.preventDefault();
-        dropzone.classList.remove("dragover");
-      })
-    );
-    dropzone.addEventListener("drop", function (e) {
-      const file = e.dataTransfer.files && e.dataTransfer.files[0];
-      if (file) window.processWorkbookFile(file);
+document.getElementById('pasteCW1').addEventListener('input', function(e) {
+  const text = e.target.value.trim();
+  const statusEl = document.getElementById('statusCW1');
+  if(!text){
+    DB.cw1 = []; statusEl.textContent = 'Aguardando dados...'; statusEl.className = 'status'; return;
+  }
+  const lines = text.split(/\r?\n/);
+  if(lines.length < 2) return;
+  const headers = lines[0].split('\t').map(h => h.trim());
+  DB.cw1 = [];
+  for(let i=1; i<lines.length; i++){
+    const cols = lines[i].split('\t');
+    let obj = {};
+    headers.forEach((h, idx) => { obj[h] = cols[idx] ? cols[idx].trim() : ''; });
+    DB.cw1.push(obj);
+  }
+  statusEl.textContent = `${DB.cw1.length} linha(s) lida(s) da área de transferência`;
+  statusEl.className = 'status ok';
+});
+
+/* ---------- Regras de negócio / Cruzamento Automático ---------- */
+function buscarDadosProcessoPorJobNum(jobNum){
+  if(!jobNum) return null;
+  const alvo = String(jobNum).trim().toUpperCase();
+  return DB.followNet.find(r => {
+    const nrProc = String(r['Nr. Processo']||'').trim().toUpperCase();
+    return (nrProc === alvo);
+  }) || null;
+}
+
+function buscarDadosCliente(cnpj){
+  if(!cnpj) return null;
+  const alvo = soDigitos(cnpj);
+  if(!alvo) return null;
+  return DB.clientes.find(r => soDigitos(r['CNPJ'] ?? r['F'] ?? '') === alvo) || null;
+}
+
+function importarDespesasCW1(vendor, numProcesso){
+  return DB.cw1.filter(r =>
+    String(r['Debtor']||'').trim() === String(vendor).trim() &&
+    String(r['Job Num.']||'').trim() === String(numProcesso).trim() &&
+    String(r['Posted - Revenue']||'').trim().toUpperCase() === 'Y' &&
+    String(r['Inv. Type']||'').trim().toUpperCase() !== 'DES'
+  ).map(r => ({
+    origem:'cw1', descricao: String(r['Description']||'').trim(), categoria: 'Importado CW1',
+    pagoCliente: 0, pagoComissaria: parseFloat(r['OS Sell Amt']) || 0,
+  }));
+}
+
+function importarAdiantamentosCW1(vendor, numProcesso){
+  return DB.cw1.filter(r => {
+    const estRev = parseFloat(r['Estimated Revenue']);
+    return String(r['Debtor']||'').trim() === String(vendor).trim() &&
+      String(r['Job Num.']||'').trim() === String(numProcesso).trim() &&
+      !isNaN(estRev) && estRev < 0 && String(r['Inv. Type']||'').trim().toUpperCase() === 'NON';
+  }).map(r => ({
+    descricao: String(r['Description']||'Adiantamento').trim(), valor: parseFloat(r['Estimated Revenue']) || 0
+  }));
+}
+
+/* ---------- Busca principal ---------- */
+document.getElementById('btnBuscar').addEventListener('click', () => {
+  const alertaEl = document.getElementById('alertaBusca');
+
+  if(DB.cw1.length === 0){
+    alertaEl.innerHTML = `<div class="alert warn">Cole os dados do <strong>CW1</strong> no Passo 1 para identificar o processo.</div>`;
+    return;
+  }
+  if(DB.followNet.length === 0){
+    alertaEl.innerHTML = `<div class="alert warn">Carregue o arquivo <strong>FollowNet</strong> no Passo 1 antes de processar.</div>`;
+    return;
+  }
+
+  // Pega o Job Num. da primeira linha válida do CW1 colado
+  const jobNumRow = DB.cw1.find(r => r['Job Num.'] && r['Job Num.'].trim() !== '');
+  if(!jobNumRow) {
+    alertaEl.innerHTML = `<div class="alert error">Não foi possível encontrar a coluna <strong>Job Num.</strong> nos dados colados do CW1.</div>`;
+    esconderCards(); return;
+  }
+  
+  const jobNum = jobNumRow['Job Num.'].trim();
+  const processo = buscarDadosProcessoPorJobNum(jobNum);
+
+  if(!processo){
+    alertaEl.innerHTML = `<div class="alert error">Nenhum processo encontrado no FollowNet para o Job Num. "${jobNum}".</div>`;
+    esconderCards(); return;
+  }
+
+  const cliente = buscarDadosCliente(processo['CNPJ']);
+  ESTADO.processo = processo; 
+  ESTADO.cliente = cliente;
+  
+  alertaEl.innerHTML = `<div class="alert ok">Processo <strong>${processo['Nr. Processo']||jobNum}</strong> cruzado com sucesso!</div>`;
+  preencherDados(processo, cliente);
+
+  const vendor = cliente ? (cliente['Customer'] ?? cliente['A'] ?? '') : '';
+  const numProcesso = processo['Nr. Processo'] || jobNum;
+  
+  ESTADO.despesas = importarDespesasCW1(vendor, numProcesso);
+  ESTADO.adiantamentos = importarAdiantamentosCW1(vendor, numProcesso);
+
+  renderDespesas(); renderDespesasManuais(); renderAdiantamentos();
+  recalcularCompensationFee(); mostrarCards(); atualizarResumo();
+});
+
+function preencherDados(p, c){
+  const set = (id, v) => document.getElementById(id).value = (v===undefined||v===null||v==='')?'—':v;
+  set('dCliente', c ? c['Name'] : ''); set('dVendor', c ? c['Customer'] : ''); set('dCNPJ', p['CNPJ']);
+  set('dEndereco', c ? c['Adress'] : ''); set('dBairro', c ? c['District'] : ''); set('dCidade', c ? c['City'] : '');
+  set('dProcesso', p['Nr. Processo']); set('dImportador', p['Importador']);
+  set('dAgente', p['Agente']); set('dIncoterm', p['Incoterm']); set('dNavio', p['Navio']); set('dVia', p['Via de Transporte']);
+  set('dHouse', p['House']); set('dMaster', p['Master']);
+  
+  // Extrai a referência do cliente do FollowNet e preenche o campo editável
+  const refCliente = p['Ref. Cliente'] || p['Ref Cliente'] || '';
+  document.getElementById('dRefCliente').value = refCliente;
+  
+  // Lógica inteligente para DUE vs DUIMP
+  const dueLabelEl = document.getElementById('lblDUE');
+  if (p['Número da Duimp'] !== undefined && p['Número da Duimp'] !== '') {
+    dueLabelEl.textContent = 'Nr. DUIMP';
+    set('dDUE', p['Número da Duimp']);
+  } else if (p['DUE'] !== undefined && p['DUE'] !== '') {
+    dueLabelEl.textContent = 'Nr. DUE';
+    set('dDUE', p['DUE']);
+  } else {
+    // Fallback original caso as novas colunas não existam
+    dueLabelEl.textContent = 'Nr. DUE';
+    set('dDUE', p['Nr. DUE'] || ''); 
+  }
+  
+  set('dCIF', p['CIF R$']!=='' && p['CIF R$']!==undefined ? 'R$ '+fmt(parseFloat(p['CIF R$'])||0) : '');
+  set('dFOB', p['FOB USD']!=='' && p['FOB USD']!==undefined ? 'US$ '+fmt(parseFloat(p['FOB USD'])||0) : '');
+  set('dFrete', p['Frete USD']!=='' && p['Frete USD']!==undefined ? p['Frete USD'] : '');
+}
+
+function mostrarCards(){
+  ['cardDados','cardDespesas','cardDespesasManuais','cardServicos','cardAdiant','cardValidacao','cardResumo'].forEach(id=>{
+    document.getElementById(id).style.display='block';
+  });
+}
+function esconderCards(){
+  ['cardDados','cardDespesas','cardDespesasManuais','cardServicos','cardAdiant','cardValidacao','cardResumo'].forEach(id=>{
+    document.getElementById(id).style.display='none';
+  });
+}
+
+/* ---------- Lançamentos Manuais ---------- */
+document.getElementById('btnAddDespesaManual').addEventListener('click', () => {
+  ESTADO.lancamentosAvulsos.push({tipo: 'Despesa', descricao: '', valor: 0});
+  renderDespesasManuais();
+});
+
+function renderDespesasManuais() {
+  const tbody = document.getElementById('corpoDespesasManuais');
+  tbody.innerHTML = '';
+  ESTADO.lancamentosAvulsos.forEach((item, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <select data-idx="${idx}" data-field="tipo">
+          <option value="Despesa" ${item.tipo==='Despesa'?'selected':''}>Despesa</option>
+          <option value="Serviço" ${item.tipo==='Serviço'?'selected':''}>Serviço</option>
+        </select>
+      </td>
+      <td><input type="text" data-idx="${idx}" data-field="descricao" value="${escapeAttr(item.descricao)}"></td>
+      <td><input type="number" step="0.01" data-idx="${idx}" data-field="valor" value="${item.valor}"></td>
+      <td class="no-print"><button class="danger small" data-remove-manual="${idx}">Remover</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('input, select').forEach(el => {
+    el.addEventListener('change', (e) => {
+      const idx = +e.target.dataset.idx, field = e.target.dataset.field;
+      ESTADO.lancamentosAvulsos[idx][field] = field === 'valor' ? (parseFloat(e.target.value)||0) : e.target.value;
+      atualizarResumo();
     });
-  })();
+  });
+  tbody.querySelectorAll('[data-remove-manual]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      ESTADO.lancamentosAvulsos.splice(+e.target.dataset.removeManual, 1);
+      renderDespesasManuais(); atualizarResumo();
+    });
+  });
+}
+
+/* ---------- Despesas CW1 ---------- */
+function renderDespesas(){
+  const tbody = document.getElementById('corpoDespesas');
+  tbody.innerHTML='';
+  ESTADO.despesas.forEach((d, idx) => {
+    const tr = document.createElement('tr');
+    tr.className = d.origem==='cw1' ? 'origem-cw1' : 'origem-manual';
+    const badge = d.origem==='cw1' ? `<span class="badge cw1">CW1</span>` : `<span class="badge manual">Manual</span>`;
+    tr.innerHTML = `
+      <td>${badge}</td>
+      <td><input type="text" data-idx="${idx}" data-field="descricao" value="${escapeAttr(d.descricao)}" ${d.origem==='cw1'?'readonly':''}></td>
+      <td>${d.categoria}</td>
+      <td><input type="number" step="0.01" data-idx="${idx}" data-field="pagoCliente" value="${d.pagoCliente||0}"></td>
+      <td><input type="number" step="0.01" data-idx="${idx}" data-field="pagoComissaria" value="${d.pagoComissaria||0}" ${d.origem==='cw1'?'readonly':''}></td>
+      <td class="no-print">${d.origem!=='cw1' ? `<button class="danger small" data-remove="${idx}">Remover</button>` : ''}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('input', (e) => {
+      const idx = +e.target.dataset.idx, field = e.target.dataset.field;
+      ESTADO.despesas[idx][field] = field==='descricao' ? e.target.value : parseFloat(e.target.value)||0;
+      recalcularCompensationFee(); atualizarResumo();
+    });
+  });
+  tbody.querySelectorAll('[data-remove]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      ESTADO.despesas.splice(+e.target.dataset.remove, 1);
+      renderDespesas(); recalcularCompensationFee(); atualizarResumo();
+    });
+  });
+}
+document.getElementById('btnAddDespesa').addEventListener('click', () => {
+  ESTADO.despesas.push({origem:'manual', descricao:'', categoria:'Manual', pagoCliente:0, pagoComissaria:0});
+  renderDespesas();
+});
+
+/* ---------- Adiantamentos ---------- */
+function renderAdiantamentos(){
+  const tbody = document.getElementById('corpoAdiant');
+  tbody.innerHTML='';
+  if(ESTADO.adiantamentos.length===0){
+    tbody.innerHTML = `<tr><td colspan="2" class="foot-note">Nenhum adiantamento encontrado.</td></tr>`; return;
+  }
+  ESTADO.adiantamentos.forEach(a => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${a.descricao}</td><td>R$ ${fmt(a.valor)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ---------- Serviços tributáveis ---------- */
+function bruto2liquido(bruto){ return round2(bruto * FATOR_GROSS_UP); }
+function atualizarServicoBasico(brutoId, liquidoId){
+  const bruto = parseFloat(document.getElementById(brutoId).value) || 0;
+  document.getElementById(liquidoId).value = fmt(bruto2liquido(bruto));
+}
+['svDespachante','svPO'].forEach(prefix=>{
+  document.getElementById(prefix+'Bruto').addEventListener('input', () => {
+    atualizarServicoBasico(prefix+'Bruto', prefix+'Liquido'); atualizarResumo();
+  });
+});
+document.getElementById('svFeeBruto').addEventListener('input', () => {
+  atualizarServicoBasico('svFeeBruto','svFeeLiquido'); atualizarResumo();
+});
+
+function totalDespesasComissaria(){
+  return ESTADO.despesas.reduce((s,d)=> s + (parseFloat(d.pagoComissaria)||0), 0);
+}
+function recalcularCompensationFee(){
+  const feeBruto = round2(totalDespesasComissaria() * ALIQ_COMPENSATION_FEE);
+  document.getElementById('svFeeBruto').value = feeBruto;
+  atualizarServicoBasico('svFeeBruto','svFeeLiquido');
+}
+document.getElementById('btnRecalcFee').addEventListener('click', () => {
+  recalcularCompensationFee(); atualizarResumo();
+});
+
+let servicosExtras = [];
+document.getElementById('btnAddServico').addEventListener('click', () => {
+  servicosExtras.push({descricao:'', bruto:0}); renderServicosExtras();
+});
+function renderServicosExtras(){
+  const tbody = document.getElementById('corpoServicosExtra');
+  tbody.innerHTML='';
+  servicosExtras.forEach((s, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" data-idx="${idx}" data-field="descricao" value="${escapeAttr(s.descricao)}" placeholder="Descrição do serviço"></td>
+      <td><input type="number" step="0.01" data-idx="${idx}" data-field="bruto" value="${s.bruto}"></td>
+      <td><input type="text" readonly value="${fmt(bruto2liquido(s.bruto))}"></td>
+      <td class="no-print"><button class="danger small" data-remove="${idx}">Remover</button></td>`;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('input').forEach(inp=>{
+    inp.addEventListener('input',(e)=>{
+      const idx = +e.target.dataset.idx, field = e.target.dataset.field;
+      servicosExtras[idx][field] = field==='bruto' ? (parseFloat(e.target.value)||0) : e.target.value;
+      renderServicosExtras(); atualizarResumo();
+    });
+  });
+  tbody.querySelectorAll('[data-remove]').forEach(btn=>{
+    btn.addEventListener('click',(e)=>{
+      servicosExtras.splice(+e.target.dataset.remove,1);
+      renderServicosExtras(); atualizarResumo();
+    });
+  });
+}
+
+/* ---------- Totais / Tributos ---------- */
+function atualizarResumo(){
+  const totalPagoCliente = ESTADO.despesas.reduce((s,d)=>s+(parseFloat(d.pagoCliente)||0),0);
+  const totalPagoComissaria = totalDespesasComissaria();
+  const totalDespesasManuais = ESTADO.lancamentosAvulsos.filter(x => x.tipo === 'Despesa').reduce((s,x)=>s+(x.valor||0),0);
+  const totalServicosManuais = ESTADO.lancamentosAvulsos.filter(x => x.tipo === 'Serviço').reduce((s,x)=>s+(x.valor||0),0);
+
+  const totalDespesasPagas = totalPagoCliente + totalPagoComissaria + totalDespesasManuais;
+
+  const brutoDespachante = parseFloat(document.getElementById('svDespachanteBruto').value)||0;
+  const brutoPO = parseFloat(document.getElementById('svPOBruto').value)||0;
+  const brutoFee = parseFloat(document.getElementById('svFeeBruto').value)||0;
+  const brutoExtras = servicosExtras.reduce((s,x)=>s+(x.bruto||0),0);
+
+  const somaBrutosServicos = brutoDespachante + brutoPO + brutoFee + brutoExtras + totalServicosManuais;
+  const basePisCofinsCsll = brutoDespachante + brutoPO;
+
+  const pis = round2(basePisCofinsCsll*ALIQ_PIS);
+  const cofins = round2(basePisCofinsCsll*ALIQ_COFINS);
+  const csll = round2(basePisCofinsCsll*ALIQ_CSLL);
+  const irrf = round2(somaBrutosServicos*ALIQ_IRRF);
+  const totalTributos = pis+cofins+csll+irrf;
+
+  const totalServicosLiquidoTrib = round2(somaBrutosServicos-totalTributos);
+  const totalAPagar = round2(totalServicosLiquidoTrib+totalDespesasPagas);
+  const totalAdiant = round2(ESTADO.adiantamentos.reduce((s,a)=>s+a.valor,0));
+  const saldoAdiant = round2(totalAPagar+totalAdiant);
+
+  const box = document.getElementById('totaisBox');
+  box.innerHTML = `
+    <div class="line"><span class="lbl">Total Despesas Pagas (Comissária + Cliente + Avulsas)</span><span class="val">R$ ${fmt(totalDespesasPagas)}</span></div>
+    <div class="divider"></div>
+    <div class="line"><span class="lbl">Soma Bruta dos Serviços Tributáveis</span><span class="val">R$ ${fmt(somaBrutosServicos)}</span></div>
+    <div class="line"><span class="lbl">PIS (0,65%)</span><span class="val">R$ ${fmt(pis)}</span></div>
+    <div class="line"><span class="lbl">COFINS (3%)</span><span class="val">R$ ${fmt(cofins)}</span></div>
+    <div class="line"><span class="lbl">CSLL (1%)</span><span class="val">R$ ${fmt(csll)}</span></div>
+    <div class="line"><span class="lbl">IRRF (1,5%)</span><span class="val">R$ ${fmt(irrf)}</span></div>
+    <div class="line"><span class="lbl">Total de Tributos</span><span class="val">R$ ${fmt(totalTributos)}</span></div>
+    <div class="line"><span class="lbl">Total Serviços (líquido de tributos)</span><span class="val">R$ ${fmt(totalServicosLiquidoTrib)}</span></div>
+    <div class="divider"></div>
+    <div class="line"><span class="lbl">Total Adiantamentos</span><span class="val">R$ ${fmt(totalAdiant)}</span></div>
+    <div class="line total-final"><span class="lbl">Total a Pagar</span><span class="val">R$ ${fmt(totalAPagar)}</span></div>
+    <div class="line total-final"><span class="lbl">Saldo Adiantamento</span><span class="val">R$ ${fmt(saldoAdiant)}</span></div>
+  `;
+
+  document.getElementById('validacaoResultado').innerHTML = `
+    <div class="alert info">Total apurado no Demonstrativo (despesas + serviços brutos): <strong>R$ ${fmt(round2(totalDespesasPagas + somaBrutosServicos))}</strong>.
+    Confira esse valor contra o total do Custeio Mult para o mesmo processo antes de emitir a fatura.</div>`;
+
+  window._ultimoResumo = {
+    totalDespesasPagas, somaBrutosServicos, totalPagoComissaria,
+    pis, cofins, csll, irrf, totalTributos, totalServicosLiquidoTrib,
+    totalAdiant, totalAPagar, saldoAdiant
+  };
+}
+
+/* ---------- Ações gerais ---------- */
+document.getElementById('btnImprimir').addEventListener('click', ()=> window.print());
+document.getElementById('btnLimpar').addEventListener('click', () => {
+  if(!confirm('Limpar todos os dados carregados e campos preenchidos?')) return;
+  location.reload();
+});
+
+/* =========================================================================
+   GERADOR NATIVO E ESTILIZADO EXCEL (.XLSX) VIA EXCELJS
+   ========================================================================= */
+document.getElementById('btnExportarXLS').addEventListener('click', async () => {
+  const p = ESTADO.processo || {};
+  const c = ESTADO.cliente || {};
+  const r = window._ultimoResumo || {};
+
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Capa de Faturamento', {
+    pageSetup: { paperSize: 9, orientation: 'portrait' },
+    views: [{ showGridLines: false }] 
+  });
+
+  // Configuração das larguras exatas das 6 colunas de trabalho
+  ws.columns = [
+    { width: 20 }, // A
+    { width: 28 }, // B
+    { width: 15 }, // C
+    { width: 15 }, // D
+    { width: 20 }, // E
+    { width: 20 }  // F
+  ];
+
+  // Variáveis de Estilização Centralizada
+  const FONT_BOLD = { name: 'Arial', size: 9, bold: true };
+  const FONT_NORMAL = { name: 'Arial', size: 9 };
+  const FMT_CURRENCY = '"R$" #,##0.00';
+  const rightAlign = { horizontal: 'right' };
+  const centerAlign = { horizontal: 'center' };
+
+  const setStyle = (cell, style) => {
+    if(style.font) cell.font = style.font;
+    if(style.alignment) cell.alignment = style.alignment;
+    if(style.border) cell.border = Object.assign({}, cell.border || {}, style.border);
+    if(style.numFmt) cell.numFmt = style.numFmt;
+  };
+
+  const drawLine = (row, borderStyle) => {
+    ['A','B','C','D','E','F'].forEach(col => {
+      const cell = ws.getCell(`${col}${row}`);
+      cell.border = Object.assign({}, cell.border || {}, borderStyle);
+    });
+  };
+
+  /* --- 1. CABEÇALHO (LOGO E INFOS DA DSV) --- */
+  ws.mergeCells('A1:B4');
+  const logoCell = ws.getCell('A1');
+  logoCell.value = 'DSV';
+  setStyle(logoCell, { font: { name: 'Arial Black', size: 36, bold: true, color: { argb: 'FF002664' }, italic: true }, alignment: { vertical: 'middle', horizontal: 'center' } });
+
+  ws.mergeCells('C1:D1'); ws.getCell('C1').value = 'DSV AIR & SEA BRASIL LTDA'; ws.getCell('C1').font = FONT_BOLD;
+  ws.mergeCells('C2:D2'); ws.getCell('C2').value = 'RUA GUSTAVO AMBRUST 35'; ws.getCell('C2').font = FONT_BOLD;
+  ws.mergeCells('C3:D3'); ws.getCell('C3').value = 'ANDAR 9 CONJ 901 A 905 EDIF 575 NORTE SUL'; ws.getCell('C3').font = FONT_BOLD;
+  ws.mergeCells('C4:D4'); ws.getCell('C4').value = 'CNPJ 49.728.108/0003-56'; ws.getCell('C4').font = FONT_BOLD;
+  ['C1','C2','C3','C4'].forEach(c => ws.getCell(c).alignment = centerAlign);
+
+  ws.mergeCells('E1:F1'); ws.getCell('E1').value = 'Nota Despesa Nº ' + (p['Nr. Processo'] || ''); setStyle(ws.getCell('E1'), { font: FONT_BOLD, alignment: rightAlign });
+  ws.mergeCells('E2:F2'); ws.getCell('E2').value = 'Data da Emissão ' + new Date().toLocaleDateString('pt-BR'); setStyle(ws.getCell('E2'), { font: FONT_BOLD, alignment: rightAlign });
+  ws.mergeCells('E3:F3'); ws.getCell('E3').value = 'Data de Vencimento'; setStyle(ws.getCell('E3'), { font: FONT_BOLD, alignment: rightAlign });
+
+  let row = 6;
+
+  /* --- 2. DADOS DO CLIENTE --- */
+  drawLine(row, { top: {style:'double'}, bottom: {style:'thin'} });
+  ws.mergeCells(`A${row}:F${row}`);
+  ws.getCell(`A${row}`).value = 'Dados do Cliente';
+  setStyle(ws.getCell(`A${row}`), { font: FONT_BOLD });
+  row++;
+
+  ws.getCell(`A${row}`).value = 'Cliente'; ws.getCell(`A${row}`).font = FONT_BOLD;
+  ws.mergeCells(`B${row}:D${row}`); ws.getCell(`B${row}`).value = c['Name'] || ''; ws.getCell(`B${row}`).font = FONT_NORMAL;
+  ws.getCell(`E${row}`).value = 'Vendor'; ws.getCell(`E${row}`).font = FONT_BOLD; ws.getCell(`E${row}`).alignment = centerAlign;
+  ws.getCell(`F${row}`).value = c['Customer'] || ''; ws.getCell(`F${row}`).font = FONT_NORMAL;
+  row++;
+
+  ws.getCell(`A${row}`).value = 'Endereço'; ws.getCell(`A${row}`).font = FONT_BOLD;
+  ws.mergeCells(`B${row}:F${row}`); ws.getCell(`B${row}`).value = c['Adress'] || ''; ws.getCell(`B${row}`).font = FONT_NORMAL;
+  row++;
+
+  ws.getCell(`A${row}`).value = 'Bairro'; ws.getCell(`A${row}`).font = FONT_BOLD;
+  ws.mergeCells(`B${row}:D${row}`); ws.getCell(`B${row}`).value = c['District'] || ''; ws.getCell(`B${row}`).font = FONT_NORMAL;
+  ws.getCell(`E${row}`).value = 'Cidade'; ws.getCell(`E${row}`).font = FONT_BOLD; ws.getCell(`E${row}`).alignment = centerAlign;
+  ws.getCell(`F${row}`).value = c['City'] || ''; ws.getCell(`F${row}`).font = FONT_NORMAL;
+  row++;
+
+  ws.getCell(`A${row}`).value = 'CNPJ'; ws.getCell(`A${row}`).font = FONT_BOLD;
+  ws.mergeCells(`B${row}:F${row}`); ws.getCell(`B${row}`).value = p['CNPJ'] || ''; ws.getCell(`B${row}`).font = FONT_NORMAL;
+  row++;
+
+  /* --- 3. DADOS DO PROCESSO --- */
+  drawLine(row, { top: {style:'double'}, bottom: {style:'thin'} });
+  ws.getCell(`A${row}`).value = 'Dados do Processo'; ws.getCell(`A${row}`).font = FONT_BOLD;
+  ws.mergeCells(`C${row}:D${row}`); ws.getCell(`C${row}`).value = 'EXPORTAÇÃO    MARITIMA'; ws.getCell(`C${row}`).font = FONT_BOLD; ws.getCell(`C${row}`).alignment = centerAlign;
+  row++;
+
+  ws.getCell(`A${row}`).value = 'Nr. Processo'; ws.getCell(`A${row}`).font = FONT_BOLD;
+  ws.mergeCells(`B${row}:D${row}`); ws.getCell(`B${row}`).value = p['Nr. Processo'] || '';
+  
+  // Define o rótulo e valor dinamicamente para a DUIMP/DUE na exportação do Excel
+  let lblDueExport = 'Nr. DUE';
+  let valDueExport = p['Nr. DUE'] || '';
+  if (p['Número da Duimp'] !== undefined && p['Número da Duimp'] !== '') {
+    lblDueExport = 'Nr. DUIMP';
+    valDueExport = p['Número da Duimp'];
+  } else if (p['DUE'] !== undefined && p['DUE'] !== '') {
+    lblDueExport = 'Nr. DUE';
+    valDueExport = p['DUE'];
+  }
+  
+  ws.getCell(`E${row}`).value = lblDueExport; ws.getCell(`E${row}`).font = FONT_BOLD; ws.getCell(`E${row}`).alignment = rightAlign;
+  ws.getCell(`F${row}`).value = valDueExport;
+  row++;
+
+  ws.getCell(`A${row}`).value = 'Ref. Cliente'; ws.getCell(`A${row}`).font = FONT_BOLD;
+  ws.mergeCells(`B${row}:F${row}`); ws.getCell(`B${row}`).value = document.getElementById('dRefCliente').value;
+  row++;
+
+  ws.getCell(`A${row}`).value = 'Importador'; ws.getCell(`A${row}`).font = FONT_BOLD;
+  ws.mergeCells(`B${row}:D${row}`); ws.getCell(`B${row}`).value = p['Importador'] || '';
+  ws.getCell(`E${row}`).value = 'Agente'; ws.getCell(`E${row}`).font = FONT_BOLD; ws.getCell(`E${row}`).alignment = rightAlign;
+  ws.getCell(`F${row}`).value = p['Agente'] || '';
+  row++;
+
+  ws.getCell(`A${row}`).value = 'Resumo Mercadoria'; ws.getCell(`A${row}`).font = FONT_BOLD;
+  ws.mergeCells(`B${row}:D${row}`); ws.getCell(`B${row}`).value = 'C-6336 BULK...';
+  ws.getCell(`E${row}`).value = 'Incoterm'; ws.getCell(`E${row}`).font = FONT_BOLD; ws.getCell(`E${row}`).alignment = rightAlign;
+  ws.getCell(`F${row}`).value = p['Incoterm'] || '';
+  row++;
+
+  ws.getCell(`A${row}`).value = 'Navio'; ws.getCell(`A${row}`).font = FONT_BOLD;
+  ws.mergeCells(`B${row}:F${row}`); ws.getCell(`B${row}`).value = p['Navio'] || '';
+  row++;
+
+  ws.getCell(`A${row}`).value = 'Via de Transporte'; ws.getCell(`A${row}`).font = FONT_BOLD;
+  ws.mergeCells(`B${row}:C${row}`); ws.getCell(`B${row}`).value = p['Via de Transporte'] || '';
+  ws.getCell(`D${row}`).value = 'Entrega'; ws.getCell(`D${row}`).font = FONT_BOLD; ws.getCell(`D${row}`).alignment = rightAlign;
+  row++;
+
+  ws.getCell(`A${row}`).value = 'CIF R$'; ws.getCell(`A${row}`).font = FONT_BOLD;
+  ws.getCell(`B${row}`).value = p['CIF R$'] ? `BRL ${fmt(parseFloat(p['CIF R$']))}` : '';
+  ws.getCell(`C${row}`).value = 'Frete R$'; ws.getCell(`C${row}`).font = FONT_BOLD; ws.getCell(`C${row}`).alignment = rightAlign;
+  ws.getCell(`D${row}`).value = 'Chegada'; ws.getCell(`D${row}`).font = FONT_BOLD; ws.getCell(`D${row}`).alignment = rightAlign;
+  ws.getCell(`E${row}`).value = 'House'; ws.getCell(`E${row}`).font = FONT_BOLD; ws.getCell(`E${row}`).alignment = rightAlign;
+  ws.getCell(`F${row}`).value = p['House'] || '';
+  row++;
+
+  ws.getCell(`A${row}`).value = 'FOB USD'; ws.getCell(`A${row}`).font = FONT_BOLD;
+  ws.getCell(`B${row}`).value = p['FOB USD'] ? `USD ${fmt(parseFloat(p['FOB USD']))}` : '';
+  ws.getCell(`C${row}`).value = 'Seguro R$'; ws.getCell(`C${row}`).font = FONT_BOLD; ws.getCell(`C${row}`).alignment = rightAlign;
+  ws.getCell(`D${row}`).value = 'Embarque'; ws.getCell(`D${row}`).font = FONT_BOLD; ws.getCell(`D${row}`).alignment = rightAlign;
+  ws.getCell(`E${row}`).value = 'Master'; ws.getCell(`E${row}`).font = FONT_BOLD; ws.getCell(`E${row}`).alignment = rightAlign;
+  ws.getCell(`F${row}`).value = p['Master'] || '';
+  row++;
+
+  /* --- 4. DESPESAS E TAXAS --- */
+  drawLine(row, { top: {style:'double'}, bottom: {style:'thin'} });
+  ws.mergeCells(`A${row}:D${row}`); ws.getCell(`A${row}`).value = 'Discriminação das Despesas não Tributáveis';
+  ws.getCell(`E${row}`).value = 'Pagas pelo Cliente (1)';
+  ws.getCell(`F${row}`).value = 'Pagas pela Comissária (2)';
+  ['A','E','F'].forEach(col => setStyle(ws.getCell(`${col}${row}`), { font: FONT_BOLD, alignment: centerAlign }));
+  ws.getCell(`E${row}`).border = { left: {style:'thin'}, top:{style:'double'}, bottom:{style:'thin'} };
+  ws.getCell(`F${row}`).border = { left: {style:'thin'}, top:{style:'double'}, bottom:{style:'thin'} };
+  row++;
+
+  const despCliente = ESTADO.despesas.filter(d => (parseFloat(d.pagoCliente) || 0) > 0);
+  const despAvulsas = ESTADO.lancamentosAvulsos.filter(l => l.tipo === 'Despesa' && (parseFloat(l.valor) || 0) > 0);
+  const despComissaria = ESTADO.despesas.filter(d => (parseFloat(d.pagoComissaria) || 0) > 0);
+
+  const todasDespesas = [...despCliente, ...despAvulsas, ...despComissaria];
+  todasDespesas.forEach(d => {
+    ws.mergeCells(`A${row}:D${row}`); ws.getCell(`A${row}`).value = d.descricao; ws.getCell(`A${row}`).alignment = centerAlign;
+    
+    let valCli = parseFloat(d.valor || d.pagoCliente) || 0;
+    let valCom = parseFloat(d.pagoComissaria) || 0;
+
+    if(valCli > 0) { ws.getCell(`E${row}`).value = valCli; ws.getCell(`E${row}`).numFmt = FMT_CURRENCY; }
+    if(valCom > 0) { ws.getCell(`F${row}`).value = valCom; ws.getCell(`F${row}`).numFmt = FMT_CURRENCY; }
+
+    ws.getCell(`E${row}`).border = { left: {style:'thin'} };
+    ws.getCell(`F${row}`).border = { left: {style:'thin'} };
+    row++;
+  });
+
+  ws.getCell(`E${row}`).border = { left: {style:'thin'} };
+  ws.getCell(`F${row}`).border = { left: {style:'thin'} };
+  row++;
+
+  drawLine(row, { top: {style:'thin'}, bottom: {style:'double'} });
+  ws.mergeCells(`A${row}:D${row}`); ws.getCell(`A${row}`).value = 'Total'; setStyle(ws.getCell(`A${row}`), { font: FONT_BOLD, alignment: centerAlign });
+  
+  const totalClienteReal = (r.totalDespesasPagas || 0) - (r.totalPagoComissaria || 0);
+  ws.getCell(`E${row}`).value = totalClienteReal; setStyle(ws.getCell(`E${row}`), { font: FONT_BOLD, numFmt: `"(1)" ${FMT_CURRENCY}`, alignment: centerAlign, border: { left: {style:'thin'}, top: {style:'thin'}, bottom: {style:'double'} } });
+  ws.getCell(`F${row}`).value = r.totalPagoComissaria || 0; setStyle(ws.getCell(`F${row}`), { font: FONT_BOLD, numFmt: `"(2)" ${FMT_CURRENCY}`, alignment: rightAlign, border: { left: {style:'thin'}, top: {style:'thin'}, bottom: {style:'double'} } });
+  row++;
+
+  /* --- 5. SERVIÇOS TRIBUTÁVEIS --- */
+  ws.mergeCells(`A${row}:D${row}`); ws.getCell(`A${row}`).value = 'Discriminação dos Serviços Tributáveis (3)';
+  ws.getCell(`E${row}`).value = 'Valor Liquido';
+  ws.getCell(`F${row}`).value = 'Valor Bruto';
+  ['A','E','F'].forEach(col => setStyle(ws.getCell(`${col}${row}`), { font: FONT_BOLD, alignment: col==='A' ? {horizontal:'left'} : centerAlign }));
+  drawLine(row, { bottom: {style:'thin'} });
+  row++;
+
+  const addServico = (desc, bruto) => {
+    if(!bruto) return;
+    ws.mergeCells(`A${row}:D${row}`); ws.getCell(`A${row}`).value = desc; ws.getCell(`A${row}`).font = FONT_BOLD;
+    ws.getCell(`E${row}`).value = bruto2liquido(bruto); setStyle(ws.getCell(`E${row}`), { numFmt: FMT_CURRENCY, alignment: rightAlign });
+    ws.getCell(`F${row}`).value = bruto; setStyle(ws.getCell(`F${row}`), { numFmt: FMT_CURRENCY, alignment: rightAlign });
+    row++;
+  };
+
+  addServico('Serviços Profissionais de Despachante', parseFloat(document.getElementById('svDespachanteBruto').value) || 0);
+  addServico('Gerenciamento PO', parseFloat(document.getElementById('svPOBruto').value) || 0);
+  addServico('Compesation Fee', parseFloat(document.getElementById('svFeeBruto').value) || 0);
+  servicosExtras.forEach(s => addServico(s.descricao, s.bruto));
+  ESTADO.lancamentosAvulsos.filter(l => l.tipo === 'Serviço').forEach(s => addServico(s.descricao, s.valor));
+
+  row++; // Espaço antes do resumo
+
+  /* --- 6. RESUMO FINAL DE IMPOSTOS --- */
+  drawLine(row, { top: {style:'double'} }); 
+  
+  const addResumo = (lbl, val, bold=false, withLine=false) => {
+    ws.mergeCells(`D${row}:E${row}`); ws.getCell(`D${row}`).value = lbl; ws.getCell(`D${row}`).font = { name: 'Arial', size: 9, bold: bold };
+    ws.getCell(`F${row}`).value = val; ws.getCell(`F${row}`).numFmt = FMT_CURRENCY; ws.getCell(`F${row}`).font = { name: 'Arial', size: 9, bold: bold }; ws.getCell(`F${row}`).alignment = rightAlign;
+    if(withLine) {
+      ws.getCell(`D${row}`).border = {top: {style:'thin'}};
+      ws.getCell(`F${row}`).border = {top: {style:'thin'}};
+    }
+    row++;
+  };
+
+  const servicosLiquidosSoma = (r.somaBrutosServicos || 0) * FATOR_GROSS_UP;
+  addResumo('Total Serviços (- Impostos Retidos)', servicosLiquidosSoma, true);
+  addResumo('Total Despesas Pagas', (r.totalDespesasPagas || 0), true);
+  addResumo('Total Adiantamentos', (r.totalAdiant || 0), true);
+  addResumo('Total a Pagar', (r.totalAPagar || 0), true, true);
+  addResumo('Saldo Adiantamento', r.saldoAdiant || 0, true);
+  row++;
+
+  ws.mergeCells(`D${row}:E${row}`); ws.getCell(`D${row}`).value = 'Total Tributos e Contribuições'; ws.getCell(`D${row}`).font = FONT_BOLD; row++;
+  addResumo('PIS', r.pis || 0, true);
+  addResumo('COFINS', r.cofins || 0, true);
+  addResumo('CSLL', r.csll || 0, true);
+  addResumo('IRRF', r.irrf || 0, true);
+  
+  drawLine(row, { top: {style:'double'} });
+
+  const buffer = await wb.xlsx.writeBuffer();
+  saveAs(new Blob([buffer]), `Capa_Faturamento_${p['Nr. Processo'] || 'DSV'}.xlsx`);
+});
 </script>
 </body>
 </html>
