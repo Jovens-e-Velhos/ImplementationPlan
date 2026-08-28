@@ -65,6 +65,9 @@
     transition: all 0.2s;
   }
   .theme-btn:hover { background: var(--element-bg); }
+  .theme-btn-accent { border-color: var(--accent); color: var(--accent); }
+
+  .dsv-logo { max-height: 44px; max-width: 220px; object-fit: contain; margin-bottom: 14px; }
 
   /* ── Meta Dados do Projeto (Datas e Responsável) ── */
   .project-info {
@@ -108,6 +111,23 @@
   .mf-item.active span { color: var(--text); }
   .mf-light { width: 14px; height: 14px; border-radius: 50%; }
 
+  /* ── Status filter bar ── */
+  .filter-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    margin-bottom: 16px; padding: 12px 16px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 10px;
+  }
+  .filter-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-right: 4px; }
+  .filter-chip {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+    border-radius: 20px; border: 1px solid var(--border); background: var(--element-bg);
+    font-size: 12px; color: var(--text); cursor: pointer; user-select: none;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .filter-chip:has(input:checked) { border-color: var(--chip-color, var(--accent)); }
+  .filter-chip input { accent-color: var(--chip-color, var(--accent)); cursor: pointer; }
+  .filter-chip-all { font-weight: 600; }
+
   /* ── Main table ── */
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
   table { width: 100%; border-collapse: collapse; }
@@ -149,6 +169,7 @@
   .date-col { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); white-space: nowrap; }
   .remarks-col { max-width: 250px; font-size: 11px; color: var(--muted); word-wrap: break-word; }
   .status-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; white-space: nowrap; }
+  .no-match-cell { text-align: center; color: var(--muted); font-size: 12px; padding: 14px !important; }
   code { background: var(--element-bg); border-radius: 4px; padding: 1px 5px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--accent); border: 1px solid var(--border); }
 
   /* ── Footer ── */
@@ -176,6 +197,40 @@
     font-size: 12px; max-width: 480px;
   }
   .privacy-note { margin-top: 24px; font-size: 11px; color: var(--muted); max-width: 480px; }
+
+  /* ── PDF / print view ──
+     #print-view is invisible on screen. When "Exportar PDF" is clicked we
+     populate it and toggle body.print-mode, which hides everything else and
+     shows only this view — then window.print() hands off to the browser's
+     native "Save as PDF", which renders text as vector output (crisp at any
+     zoom/print size, unlike a screenshot-based export). */
+  #print-view { display: none; }
+  body.print-mode > *:not(#print-view) { display: none !important; }
+  body.print-mode { background: #fff; padding: 0; }
+  body.print-mode #print-view {
+    display: block; max-width: 900px; margin: 0 auto; padding: 24px;
+    background: #fff; color: #111;
+  }
+
+  .pdf-letterhead { display: flex; align-items: center; gap: 20px; border-bottom: 2px solid #111; padding-bottom: 16px; margin-bottom: 20px; }
+  .pdf-logo { max-height: 50px; max-width: 200px; object-fit: contain; }
+  .pdf-titleblock h1 { font-size: 20px; font-weight: 700; color: #111; }
+  .pdf-sub { font-size: 11px; color: #555; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }
+  .pdf-stage-title { font-size: 13px; font-weight: 700; color: #111; margin: 20px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #ccc; }
+  .pdf-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+  .pdf-table th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: #444; padding: 6px 8px; border-bottom: 1px solid #999; }
+  .pdf-table td { font-size: 11px; padding: 6px 8px; border-bottom: 1px solid #ddd; color: #222; vertical-align: top; }
+  .pdf-status { display: inline-block; padding: 1px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; border: 1px solid; }
+  .pdf-empty { font-size: 13px; color: #444; padding: 20px 0; }
+  .pdf-footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 10px; color: #666; font-family: 'IBM Plex Mono', monospace; }
+
+  @media print {
+    @page { margin: 16mm 12mm; }
+    body.print-mode #print-view { padding: 0; }
+    .pdf-table { page-break-inside: auto; }
+    .pdf-table tr { page-break-inside: avoid; }
+    .pdf-stage-title { page-break-after: avoid; }
+  }
 </style>
 </head>
 <body>
@@ -197,6 +252,7 @@
   </div>
 
   <div id="report-root" style="display:none"></div>
+  <div id="print-view"></div>
 
 </div>
 
