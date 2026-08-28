@@ -402,7 +402,7 @@ function renderReport(stages, filename, meta) {
 
   document.getElementById("report-root").innerHTML = `
 <div class="header">
-  <img src="fotos/logo.jpg" alt="DSV" class="dsv-logo" onerror="this.style.display='none'">
+  <img src="fotos/logo.png" alt="DSV" class="dsv-logo" onerror="this.style.display='none'">
   <h1>Farol PMO — Implementation Report</h1>
   <div class="sub">Arquivo: ${escapeHtml(filename)} &nbsp;·&nbsp; Gerado em: ${todayStr}</div>
 
@@ -600,7 +600,7 @@ function exportOpenTasksPDF() {
 
   view.innerHTML = `
     <div class="pdf-letterhead">
-      <img src="fotos/logo.jpg" alt="DSV" class="pdf-logo" onerror="this.style.display='none'">
+      <img src="fotos/logo.png" alt="DSV" class="pdf-logo" onerror="this.style.display='none'">
       <div class="pdf-titleblock">
         <h1>Farol PMO — Tasks em Aberto</h1>
         <div class="pdf-sub">Arquivo: ${escapeHtml(LAST_FILENAME || "")} &nbsp;·&nbsp; Gerado em: ${today} &nbsp;·&nbsp; Responsável: ${escapeHtml(LAST_META ? LAST_META.responsible : "")}</div>
