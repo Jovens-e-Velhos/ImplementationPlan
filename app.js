@@ -610,14 +610,24 @@ function exportOpenTasksPDF() {
     <div class="pdf-footer">Farol PMO · gerado em ${today} · ${totalOpen} task(s) em aberto</div>
   `;
 
-  document.body.classList.add("print-mode");
-  const cleanup = () => document.body.classList.remove("print-mode");
-  window.onafterprint = cleanup;
-  // Fallback for browsers that don't fire afterprint reliably.
+ document.body.classList.add("print-mode");
+
+  const cleanup = () => {
+    document.body.classList.remove("print-mode");
+    window.removeEventListener("afterprint", cleanup);
+    window.removeEventListener("focus", cleanup);
+  };
+
+  // Aguarda o navegador fechar a janela de impressão nativamente
+  window.addEventListener("afterprint", cleanup);
+  
+  // Fallback de segurança: remove o modo de impressão se a janela principal recuperar o foco
+  window.addEventListener("focus", cleanup);
+
+  // Dá 100ms para o CSS ser aplicado antes de invocar a impressão
   setTimeout(() => {
     window.print();
-    setTimeout(cleanup, 1000);
-  }, 50);
+  }, 100);
 }
 window.exportOpenTasksPDF = exportOpenTasksPDF;
 
