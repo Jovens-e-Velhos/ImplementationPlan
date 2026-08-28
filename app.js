@@ -370,7 +370,7 @@ function renderReport(stages, filename, meta) {
       const indent = t.is_subtask ? "padding-left:28px" : "";
       const prefix = t.is_subtask ? "└ " : "";
       const sr = t.is_subtask ? "subtask-row" : "";
-      taskRows += `<tr class="task-row ${sr}">` +
+      taskRows += `<tr class="task-row ${sr}" data-status-norm="${escapeHtml(t.status_norm)}">` +
         `<td style="${indent}">${dot(t.color, 10)} ${prefix}<code>${escapeHtml(t.id)}</code></td>` +
         `<td style="color: var(--text)">${escapeHtml(t.name)}</td>` +
         `<td class="resp-col">${escapeHtml(t.responsible)}</td>` +
@@ -380,6 +380,7 @@ function renderReport(stages, filename, meta) {
         `<td class="remarks-col">${escapeHtml(t.remarks)}</td>` +
         `</tr>`;
     }
+    taskRows += `<tr class="no-match-row" style="display:none"><td colspan="7" class="no-match-cell">Nenhuma task com o status selecionado nesta etapa.</td></tr>`;
 
     allRows += `<tr class="stage-row" onclick="toggleDetail('detail-${i}')">` +
       `<td class="stage-name"><span class="expand-icon">▶</span>` +
@@ -401,11 +402,13 @@ function renderReport(stages, filename, meta) {
 
   document.getElementById("report-root").innerHTML = `
 <div class="header">
+  <img src="fotos/logo.jpg" alt="DSV" class="dsv-logo" onerror="this.style.display='none'">
   <h1>Farol PMO — Implementation Report</h1>
   <div class="sub">Arquivo: ${escapeHtml(filename)} &nbsp;·&nbsp; Gerado em: ${todayStr}</div>
 
   <div class="header-actions">
     <button onclick="toggleTheme()" class="theme-btn">Alternar Modo Claro/Escuro</button>
+    <button onclick="window.exportOpenTasksPDF()" class="theme-btn theme-btn-accent">Exportar PDF (tasks em aberto)</button>
     <button onclick="window.resetUpload()" class="theme-btn">Carregar outra planilha</button>
   </div>
 
@@ -431,6 +434,8 @@ function renderReport(stages, filename, meta) {
   </div>
 </div>
 
+<div id="status-filter-bar" class="filter-bar"></div>
+
 <div class="card">
   <table>
     <thead>
@@ -454,14 +459,167 @@ function renderReport(stages, filename, meta) {
 }
 
 // ─── Orchestration ────────────────────────────────────────────────────────
+// Kept around after render so the status filter and the PDF export can
+// re-read the same data without re-parsing the workbook.
+let LAST_STAGES = null;
+let LAST_META = null;
+let LAST_FILENAME = null;
+
 function processWorkbook(workbook, filename) {
   const data = loadData(workbook);
   const stages = buildStages(data);
   const { latest_update, responsible } = getProjectMetadata(workbook);
   const go_live = getMilestoneDate(data, "602");
   const closure = getMilestoneDate(data, "706");
-  renderReport(stages, filename, { latest_update, responsible, go_live, closure });
+  const meta = { latest_update, responsible, go_live, closure };
+
+  LAST_STAGES = stages;
+  LAST_META = meta;
+  LAST_FILENAME = filename;
+
+  renderReport(stages, filename, meta);
+  renderStatusFilterBar(stages);
 }
+
+// ─── Status filter ─────────────────────────────────────────────────────
+function collectStatuses(stages) {
+  // Map keyed by normalized status so "On Track" / "on track" dedupe,
+  // preserving the first-seen raw label (for display) and its color.
+  const map = new Map();
+  for (const s of stages) {
+    for (const t of s.tasks) {
+      if (!map.has(t.status_norm)) {
+        map.set(t.status_norm, { raw: t.status || t.status_norm, color: t.color });
+      }
+    }
+  }
+  return map;
+}
+
+function renderStatusFilterBar(stages) {
+  const bar = document.getElementById("status-filter-bar");
+  if (!bar) return;
+  const statuses = collectStatuses(stages);
+  if (statuses.size === 0) {
+    bar.innerHTML = "";
+    return;
+  }
+
+  let chips = `<span class="filter-label">Filtrar por status:</span>`;
+  chips += `<label class="filter-chip filter-chip-all"><input type="checkbox" class="status-filter-cb" data-all="1" checked> Todos</label>`;
+  for (const [norm, { raw, color }] of statuses) {
+    const hex = COLOR_HEX[color] || "#94a3b8";
+    chips += `<label class="filter-chip" style="--chip-color:${hex}">` +
+      `<input type="checkbox" class="status-filter-cb" data-status="${escapeHtml(norm)}" checked>` +
+      `${dot(color, 9)} ${escapeHtml(raw)}</label>`;
+  }
+  bar.innerHTML = chips;
+
+  const allCb = bar.querySelector('[data-all="1"]');
+  const statusCbs = Array.from(bar.querySelectorAll("[data-status]"));
+
+  allCb.addEventListener("change", () => {
+    statusCbs.forEach((cb) => (cb.checked = allCb.checked));
+    applyStatusFilter();
+  });
+  statusCbs.forEach((cb) =>
+    cb.addEventListener("change", () => {
+      allCb.checked = statusCbs.every((c) => c.checked);
+      applyStatusFilter();
+    })
+  );
+}
+
+function applyStatusFilter() {
+  const bar = document.getElementById("status-filter-bar");
+  if (!bar) return;
+  const statusCbs = Array.from(bar.querySelectorAll("[data-status]"));
+  const checked = new Set(statusCbs.filter((cb) => cb.checked).map((cb) => cb.dataset.status));
+  const isFullSet = checked.size === statusCbs.length;
+
+  document.querySelectorAll(".detail-inner .inner-table tbody").forEach((tbody) => {
+    let anyVisible = false;
+    tbody.querySelectorAll(".task-row").forEach((row) => {
+      const match = checked.has(row.dataset.statusNorm);
+      row.style.display = match ? "" : "none";
+      if (match) anyVisible = true;
+    });
+    const emptyRow = tbody.querySelector(".no-match-row");
+    if (emptyRow) emptyRow.style.display = anyVisible ? "none" : "table-row";
+  });
+
+  // When a real filter is active, auto-expand every stage so the matching
+  // tasks are visible without having to click each row open manually.
+  if (!isFullSet) {
+    document.querySelectorAll(".detail-section").forEach((el) => {
+      el.style.display = "table-row";
+      const row = el.previousElementSibling;
+      if (row) row.classList.add("expanded");
+    });
+  }
+}
+window.applyStatusFilter = applyStatusFilter;
+
+// ─── PDF export (tasks em aberto) ───────────────────────────────────────
+function exportOpenTasksPDF() {
+  if (!LAST_STAGES) return;
+  const view = document.getElementById("print-view");
+  if (!view) return;
+
+  const today = fmtDate(new Date());
+  let sections = "";
+  let totalOpen = 0;
+
+  for (const s of LAST_STAGES) {
+    const open = s.tasks.filter((t) => !t.status_norm.includes("finished"));
+    if (open.length === 0) continue;
+    totalOpen += open.length;
+
+    let rows = "";
+    for (const t of open) {
+      const hex = COLOR_HEX[t.color] || "#94a3b8";
+      rows += `<tr>` +
+        `<td>${escapeHtml(t.id)}</td>` +
+        `<td>${escapeHtml(t.name)}</td>` +
+        `<td>${escapeHtml(t.responsible)}</td>` +
+        `<td>${fmtDate(t.start)}</td>` +
+        `<td>${fmtDate(t.end)}</td>` +
+        `<td><span class="pdf-status" style="border-color:${hex};color:${hex}">${escapeHtml(t.status)}</span></td>` +
+        `</tr>`;
+    }
+
+    sections += `<h3 class="pdf-stage-title">${escapeHtml(s.label)}</h3>` +
+      `<table class="pdf-table"><thead><tr>` +
+      `<th>ID</th><th>Task</th><th>Responsável</th><th>Início</th><th>Fim</th><th>Status</th>` +
+      `</tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  if (totalOpen === 0) {
+    sections = `<p class="pdf-empty">Não há tasks em aberto — todas as tasks estão marcadas como "Finished".</p>`;
+  }
+
+  view.innerHTML = `
+    <div class="pdf-letterhead">
+      <img src="fotos/logo.jpg" alt="DSV" class="pdf-logo" onerror="this.style.display='none'">
+      <div class="pdf-titleblock">
+        <h1>Farol PMO — Tasks em Aberto</h1>
+        <div class="pdf-sub">Arquivo: ${escapeHtml(LAST_FILENAME || "")} &nbsp;·&nbsp; Gerado em: ${today} &nbsp;·&nbsp; Responsável: ${escapeHtml(LAST_META ? LAST_META.responsible : "")}</div>
+      </div>
+    </div>
+    ${sections}
+    <div class="pdf-footer">Farol PMO · gerado em ${today} · ${totalOpen} task(s) em aberto</div>
+  `;
+
+  document.body.classList.add("print-mode");
+  const cleanup = () => document.body.classList.remove("print-mode");
+  window.onafterprint = cleanup;
+  // Fallback for browsers that don't fire afterprint reliably.
+  setTimeout(() => {
+    window.print();
+    setTimeout(cleanup, 1000);
+  }, 50);
+}
+window.exportOpenTasksPDF = exportOpenTasksPDF;
 
 function toggleDetail(id) {
   const el = document.getElementById(id);
@@ -517,6 +675,11 @@ window.resetUpload = function () {
   document.getElementById("report-root").style.display = "none";
   document.getElementById("report-root").innerHTML = "";
   document.getElementById("upload-screen").style.display = "flex";
+  const printView = document.getElementById("print-view");
+  if (printView) printView.innerHTML = "";
+  LAST_STAGES = null;
+  LAST_META = null;
+  LAST_FILENAME = null;
   const input = document.getElementById("file-input");
   if (input) input.value = "";
 };
