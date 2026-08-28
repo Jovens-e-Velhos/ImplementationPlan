@@ -1,536 +1,241 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Farol PMO – Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Farol PMO — Implementation Report</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2242%22 fill=%22%2322c55e%22/></svg>">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap');
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    /* ── Clean Light Theme (Default) ── */
-    :root {
-      --bg: #f8fafc;
-      --surface: #ffffff;
-      --border: #e2e8f0;
-      --text-main: #0f172a;
-      --text-muted: #64748b;
-      --accent: #3b82f6;
-      --accent-soft: #eff6ff;
-      --radius: 16px;
-      --radius-sm: 8px;
-      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
-      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
-    }
+  /* ── TEMA ESCURO (Padrão) ── */
+  :root {
+    --bg:         #0d1117;
+    --surface:    #161b22;
+    --border:     #30363d;
+    --text:       #e6edf3;
+    --muted:      #8b949e;
+    --accent:     #58a6ff;
+    --element-bg: #1c2128;
+    --farol-bg:   #11151a;
+    --track-bg:   #21262d;
+  }
 
-    /* ── Refined Dark Theme ── */
-    body.dark-theme {
-      --bg: #0f172a;
-      --surface: #1e293b;
-      --border: #334155;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --accent: #3b82f6;
-      --accent-soft: #1e3a8a;
-      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3);
-      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3);
-    }
+  /* ── TEMA CLARO ── */
+  body.light-theme {
+    --bg:         #f6f8fa;
+    --surface:    #ffffff;
+    --border:     #d0d7de;
+    --text:       #1f2328;
+    --muted:      #656d76;
+    --accent:     #0969da;
+    --element-bg: #f3f4f6;
+    --farol-bg:   #e5e7eb;
+    --track-bg:   #e5e7eb;
+  }
 
-    body {
-      background: var(--bg);
-      color: var(--text-main);
-      font-family: 'Inter', sans-serif;
-      font-size: 14px;
-      min-height: 100vh;
-      padding: 40px 24px;
-      transition: background-color 0.3s, color 0.3s;
-      -webkit-font-smoothing: antialiased;
-    }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    padding: 32px 24px;
+    transition: background-color 0.3s, color 0.3s;
+  }
 
-    .container { max-width: 1100px; margin: 0 auto; }
+  .container { max-width: 1200px; margin: 0 auto; }
 
-    /* ── Typography & Header ── */
-    .header {
-      display: flex; flex-direction: column; align-items: center; text-align: center;
-      margin-bottom: 40px;
-    }
-    .header h1 { font-size: 28px; font-weight: 700; color: var(--text-main); letter-spacing: -0.02em; }
-    .header .sub { color: var(--text-muted); font-size: 13px; margin-top: 8px; font-weight: 400; }
-    
-    .theme-toggle {
-      background: var(--surface); color: var(--text-main); border: 1px solid var(--border);
-      padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: 500;
-      cursor: pointer; margin-top: 20px; box-shadow: var(--shadow);
-      transition: all 0.2s ease;
-    }
-    .theme-toggle:hover { transform: translateY(-1px); box-shadow: var(--shadow-lg); }
+  /* ── Header Centralizado ── */
+  .header {
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    margin-bottom: 32px; padding-bottom: 32px; border-bottom: 1px solid var(--border);
+  }
+  .header h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: var(--text); }
+  .header .sub { color: var(--muted); font-size: 12px; margin-top: 6px; font-family: 'IBM Plex Mono', monospace; }
 
-    /* ── Upload Area ── */
-    .upload-box {
-      background: var(--surface); border: 2px dashed #cbd5e1; border-radius: var(--radius);
-      padding: 48px 24px; text-align: center; margin-bottom: 40px; cursor: pointer;
-      box-shadow: var(--shadow); transition: all 0.2s ease;
-    }
-    body.dark-theme .upload-box { border-color: #475569; }
-    .upload-box:hover, .upload-box.dragover { border-color: var(--accent); background: var(--accent-soft); }
-    .upload-icon { font-size: 32px; margin-bottom: 12px; display: block; }
-    .upload-box strong { font-size: 16px; font-weight: 600; color: var(--text-main); }
-    .upload-box p { color: var(--text-muted); font-size: 13px; margin-top: 8px; }
-    .upload-box input { display: none; }
+  .header-actions { display: flex; gap: 12px; margin-top: 16px; }
 
-    /* ── Metadata Cards ── */
-    .dashboard-top {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px; margin-bottom: 32px;
-    }
-    .meta-card {
-      background: var(--surface); padding: 20px; border-radius: var(--radius);
-      box-shadow: var(--shadow); border: 1px solid var(--border);
-      display: flex; flex-direction: column; align-items: flex-start;
-    }
-    .meta-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 8px; }
-    .meta-value { font-size: 15px; font-weight: 600; color: var(--text-main); }
+  .theme-btn {
+    padding: 6px 16px; border-radius: 6px; cursor: pointer;
+    background: var(--surface); color: var(--text); border: 1px solid var(--border);
+    font-family: inherit; font-size: 12px; font-weight: 600;
+    transition: all 0.2s;
+  }
+  .theme-btn:hover { background: var(--element-bg); }
 
-    /* ── Main Dashboard Layout ── */
-    .main-grid { display: grid; gap: 24px; margin-bottom: 40px; }
+  /* ── Meta Dados do Projeto (Datas e Responsável) ── */
+  .project-info {
+    display: flex; flex-wrap: wrap; gap: 40px; justify-content: center;
+    margin-top: 24px; padding: 16px 32px; background: var(--element-bg);
+    border-radius: 12px; border: 1px solid var(--border);
+  }
+  .info-item { display: flex; flex-direction: column; align-items: center; }
+  .info-item strong {
+    color: var(--muted); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.08em; margin-bottom: 6px;
+  }
+  .info-value { font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: var(--accent); font-weight: 600; }
 
-    /* ── Overall Metrics Panel ── */
-    .metrics-panel {
-      background: var(--surface); padding: 32px; border-radius: var(--radius);
-      box-shadow: var(--shadow); border: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: space-around; flex-wrap: wrap; gap: 32px;
-    }
-    .gauge-wrap { text-align: center; }
-    .gauge-ring {
-      width: 100px; height: 100px; border-radius: 50%;
-      background: conic-gradient(var(--accent) 0deg, var(--border) 0deg);
-      display: flex; align-items: center; justify-content: center;
-      position: relative; margin: 0 auto;
-    }
-    .gauge-ring::after { content: ''; position: absolute; width: 76px; height: 76px; border-radius: 50%; background: var(--surface); }
-    .gauge-pct { position: relative; z-index: 1; font-size: 20px; font-weight: 700; color: var(--text-main); }
-    
-    .macro-farol { display: flex; gap: 20px; }
-    .mf-item { display: flex; flex-direction: column; align-items: center; gap: 8px; opacity: 0.4; transition: opacity 0.3s; }
-    .mf-item.active { opacity: 1; transform: scale(1.05); }
-    .mf-item span { font-size: 12px; font-weight: 500; color: var(--text-main); }
-    .mf-light { width: 16px; height: 16px; border-radius: 50%; }
+  .header-metrics {
+    display: flex; align-items: center; justify-content: center; gap: 48px;
+    margin-top: 24px; background: var(--surface); padding: 20px 40px;
+    border-radius: 16px; border: 1px solid var(--border);
+  }
 
-    /* ── Stages Table ── */
-    .table-card {
-      background: var(--surface); border-radius: var(--radius);
-      box-shadow: var(--shadow); border: 1px solid var(--border); overflow: hidden;
-    }
-    table { width: 100%; border-collapse: collapse; text-align: left; }
-    thead tr { border-bottom: 1px solid var(--border); background: var(--surface); }
-    thead th { padding: 16px 24px; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; }
-    
-    .stage-row { cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.2s; }
-    .stage-row:hover { background: var(--bg); }
-    .stage-row td { padding: 20px 24px; vertical-align: middle; }
-    
-    .stage-name-wrap { display: flex; align-items: center; gap: 12px; }
-    .expand-icon {
-      font-size: 10px; color: var(--text-muted); transition: transform 0.2s;
-      display: flex; align-items: center; justify-content: center;
-      width: 20px; height: 20px; border-radius: 4px; background: var(--border);
-    }
-    .expanded .expand-icon { transform: rotate(90deg); }
-    .stage-title { font-weight: 600; font-size: 14px; color: var(--text-main); }
-    
-    /* ── Clean Progress Bar ── */
-    .progress-cell { display: flex; align-items: center; gap: 12px; }
-    .pbar-wrap { flex-grow: 1; max-width: 140px; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
-    .pbar-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease-out; }
-    .pct-label { font-size: 12px; font-weight: 500; color: var(--text-muted); width: 40px; }
+  /* ── Overall gauge ── */
+  .gauge-wrap { text-align: center; }
+  .gauge-ring {
+    width: 90px; height: 90px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; margin: 0 auto;
+  }
+  .gauge-ring::after { content: ''; position: absolute; width: 70px; height: 70px; border-radius: 50%; background: var(--surface); }
+  .gauge-pct { position: relative; z-index: 1; font-size: 18px; font-weight: 700; color: var(--accent); font-family: 'IBM Plex Mono', monospace; }
+  .gauge-label { font-size: 11px; color: var(--muted); margin-top: 8px; text-transform: uppercase; letter-spacing: 0.08em; }
 
-    /* ── Minimalist Traffic Light (Farol) ── */
-    .farol { display: flex; gap: 6px; align-items: center; background: var(--bg); padding: 6px 10px; border-radius: 20px; border: 1px solid var(--border); }
-    .farol-luz { width: 10px; height: 10px; border-radius: 50%; opacity: 0.2; transition: opacity 0.3s; }
-    .status-label { font-size: 12px; font-weight: 500; margin-left: 12px; }
+  /* ── Macro Farol ── */
+  .macro-farol-wrap { text-align: center; }
+  .macro-farol {
+    display: flex; background: var(--farol-bg); padding: 8px 16px; border-radius: 12px; gap: 16px;
+    border: 1px solid var(--border); box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .mf-item { display: flex; align-items: center; gap: 8px; opacity: 0.3; transition: opacity 0.3s; }
+  .mf-item.active { opacity: 1; }
+  .mf-item span { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .mf-item.active span { color: var(--text); }
+  .mf-light { width: 14px; height: 14px; border-radius: 50%; }
 
-    /* ── Detail Sub-table ── */
-    .detail-section td { padding: 0 !important; }
-    .detail-inner { background: var(--bg); padding: 24px; border-bottom: 1px solid var(--border); }
-    .inner-table { background: var(--surface); border-radius: var(--radius-sm); border: 1px solid var(--border); overflow: hidden; }
-    .inner-table thead th { background: var(--bg); padding: 12px 16px; font-size: 10px; border-bottom: 1px solid var(--border); }
-    .task-row td { padding: 12px 16px; font-size: 13px; border-bottom: 1px solid var(--border); }
-    .task-row:last-child td { border-bottom: none; }
-    .subtask-row td { background: var(--surface); }
-    
-    .status-badge {
-      display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px;
-      font-size: 11px; font-weight: 600; text-transform: capitalize;
-    }
-    .task-id { font-family: monospace; color: var(--text-muted); background: var(--bg); padding: 2px 6px; border-radius: 4px; font-size: 11px; border: 1px solid var(--border); }
+  /* ── Main table ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: var(--element-bg); }
+  thead th { padding: 10px 16px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--border); }
+  .stage-row { cursor: pointer; transition: background 0.15s; border-bottom: 1px solid var(--border); }
+  .stage-row:hover { background: var(--element-bg); }
+  .stage-row td { padding: 14px 16px; vertical-align: middle; }
 
-    /* ── Footer ── */
-    .footer { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; }
-  </style>
+  .stage-name { width: 260px; }
+  .stage-name strong { font-size: 13px; }
+  .weight-col { width: 60px; text-align: center; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
+  .status-col { width: 220px; display: flex; align-items: center; gap: 6px; padding-top: 17px; }
+
+  .expand-icon { font-size: 9px; margin-right: 8px; color: var(--muted); transition: transform 0.2s; display: inline-block; }
+  .expanded .expand-icon { transform: rotate(90deg); }
+
+  /* ── Progress bar ── */
+  .pbar-wrap { height: 6px; border-radius: 3px; background: var(--track-bg); overflow: hidden; margin-bottom: 4px; width: 200px; }
+  .pbar-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+  .pct-label { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
+
+  /* ── Farol (Semáforo) Etapas ── */
+  .dot { display: inline-block; border-radius: 50%; flex-shrink: 0; vertical-align: middle; }
+  .farol {
+    display: inline-flex; background: var(--farol-bg); padding: 4px; border-radius: 12px; gap: 4px;
+    border: 1px solid var(--border); box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .farol-luz { width: 12px; height: 12px; border-radius: 50%; opacity: 0.15; transition: all 0.3s ease; }
+
+  /* ── Detail section ── */
+  .detail-section td { padding: 0 !important; }
+  .detail-inner { border-top: 1px solid var(--border); background: var(--bg); padding: 0; }
+  .inner-table thead th { background: var(--element-bg); font-size: 10px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+  .task-row td { padding: 8px 14px; font-size: 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .subtask-row { background: var(--surface); }
+  .task-row:last-child td { border-bottom: none; }
+  .resp-col { color: var(--muted); font-size: 11px; max-width: 180px; }
+  .date-col { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .remarks-col { max-width: 250px; font-size: 11px; color: var(--muted); word-wrap: break-word; }
+  .status-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; white-space: nowrap; }
+  code { background: var(--element-bg); border-radius: 4px; padding: 1px 5px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--accent); border: 1px solid var(--border); }
+
+  /* ── Footer ── */
+  .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+
+  /* ── Upload screen ── */
+  #upload-screen {
+    min-height: 70vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; gap: 8px;
+  }
+  #upload-screen h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 6px; }
+  #upload-screen p.lead { color: var(--muted); font-size: 13px; max-width: 480px; margin-bottom: 28px; line-height: 1.6; }
+  .dropzone {
+    width: 100%; max-width: 480px; border: 2px dashed var(--border); border-radius: 16px;
+    background: var(--surface); padding: 48px 32px; cursor: pointer; transition: all 0.2s;
+  }
+  .dropzone:hover, .dropzone.dragover { border-color: var(--accent); background: var(--element-bg); }
+  .dropzone .icon { font-size: 40px; margin-bottom: 12px; }
+  .dropzone .title { font-weight: 600; font-size: 14px; color: var(--text); margin-bottom: 4px; }
+  .dropzone .hint { font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  #file-input { display: none; }
+  #upload-error {
+    display: none; margin-top: 20px; padding: 12px 18px; border-radius: 8px;
+    background: #ef444422; border: 1px solid #ef444444; color: #ef4444;
+    font-size: 12px; max-width: 480px;
+  }
+  .privacy-note { margin-top: 24px; font-size: 11px; color: var(--muted); max-width: 480px; }
+</style>
 </head>
-<body class="light-theme">
-
+<body>
 <div class="container">
-  
-  <div class="header">
-    <h1>Farol PMO Dashboard</h1>
-    <div class="sub" id="headerSub">O relatório será gerado localmente em seu navegador.</div>
-    <button onclick="toggleTheme()" class="theme-toggle">🌓 Alternar Tema</button>
+
+  <div id="upload-screen">
+    <h1>Farol PMO</h1>
+    <p class="lead">Carregue a planilha <strong>Implementation Plan</strong> (.xlsx) para gerar o painel de acompanhamento. Tudo é processado localmente, no seu navegador.</p>
+
+    <label class="dropzone" id="dropzone" for="file-input">
+      <div class="icon">📊</div>
+      <div class="title">Arraste o arquivo .xlsx aqui</div>
+      <div class="hint">ou clique para selecionar</div>
+    </label>
+    <input type="file" id="file-input" accept=".xlsx,.xlsm,.xls">
+
+    <div id="upload-error"></div>
+    <div class="privacy-note">O arquivo nunca sai do seu computador — não há upload para nenhum servidor.</div>
   </div>
 
-  <div class="upload-box" id="dropZone" onclick="document.getElementById('fileInput').click()">
-    <span class="upload-icon">📄</span>
-    <strong>Arraste sua planilha Excel (.xlsx) para cá</strong>
-    <p>Ou clique para selecionar o arquivo. Nenhum dado é enviado para a nuvem.</p>
-    <input type="file" id="fileInput" accept=".xlsx, .xls" />
-  </div>
+  <div id="report-root" style="display:none"></div>
 
-  <div id="reportContainer" style="display: none;">
-    
-    <!-- Meta Cards -->
-    <div class="dashboard-top">
-      <div class="meta-card">
-        <span class="meta-label">Responsável</span>
-        <span class="meta-value" id="metaResp">—</span>
-      </div>
-      <div class="meta-card">
-        <span class="meta-label">Última Atualização</span>
-        <span class="meta-value" id="metaUpdate">—</span>
-      </div>
-      <div class="meta-card">
-        <span class="meta-label">Go-Live (Wave 1)</span>
-        <span class="meta-value" id="metaGoLive">—</span>
-      </div>
-      <div class="meta-card">
-        <span class="meta-label">Project Closure</span>
-        <span class="meta-value" id="metaClosure">—</span>
-      </div>
-    </div>
-
-    <div class="main-grid">
-      <!-- High-Level Metrics -->
-      <div class="metrics-panel">
-        <div class="gauge-wrap">
-          <div class="gauge-ring" id="gaugeRing">
-            <span class="gauge-pct" id="gaugePct">0%</span>
-          </div>
-          <div class="meta-label" style="margin-top: 12px;">Conclusão Geral</div>
-        </div>
-        
-        <div style="text-align: center;">
-          <div class="macro-farol" id="macroFarol"></div>
-          <div class="meta-label" style="margin-top: 16px;">Status Geral do Projeto</div>
-        </div>
-      </div>
-
-      <!-- Main Stages Table -->
-      <div class="table-card">
-        <table>
-          <thead>
-            <tr>
-              <th>Fase do Projeto</th>
-              <th style="width: 80px; text-align: center;">Peso</th>
-              <th style="width: 220px;">Progresso</th>
-              <th style="width: 200px;">Status</th>
-            </tr>
-          </thead>
-          <tbody id="stagesTableBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="footer">
-      <span id="footerGenerated">Farol PMO Web</span>
-      <span>Pesos: Initiation (5%) · Mapeamento (30%) · Contrato (10%) · Systems (30%) · Cadastros (10%) · Go Live (10%) · Evaluation (5%)</span>
-    </div>
-  </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="app.js"></script>
 <script>
-  // Paleta de cores Tailwind-style para visual moderno
-  const COLORS = {
-    green:  { hex: "#10b981", bg: "#d1fae5", text: "#065f46" },
-    yellow: { hex: "#f59e0b", bg: "#fef3c7", text: "#92400e" },
-    red:    { hex: "#ef4444", bg: "#fee2e2", text: "#991b1b" },
-    blue:   { hex: "#3b82f6", bg: "#dbeafe", text: "#1e40af" },
-    gray:   { hex: "#94a3b8", bg: "#f1f5f9", text: "#475569" }
-  };
-
-  const STATUS_LABELS = {
-    green: "No Prazo", yellow: "Atenção", red: "Atrasado", blue: "Concluído", gray: "Não Iniciado"
-  };
-
-  const STAGE_WEIGHTS = [
-    { label: "Initiation",                    weight: 0.05, min: 201, max: 299 },
-    { label: "Design Mapeamento operacional", weight: 0.30, min: 401, max: 499 },
-    { label: "Contrato",                      weight: 0.10, min: 301, max: 399 },
-    { label: "Systems (execução)",            weight: 0.30, min: 503, max: 503 },
-    { label: "Cadastros",                     weight: 0.10, min: 502, max: 502 },
-    { label: "Go Live",                       weight: 0.10, min: 601, max: 699 },
-    { label: "Evaluation",                    weight: 0.05, min: 701, max: 799 }
-  ];
-
-  const STATUS_SCORE = {
-    "finished": 1.0, "on track": 0.5, "not started": 0.0,
-    "postponed": 0.3, "delayed": 0.3, "overdue": 0.1, "on hold": 0.0
-  };
-
-  function parseDate(val) {
-    if (!val) return null;
-    if (val instanceof Date) return val;
-    if (typeof val === 'number') return new Date(Math.round((val - 25569) * 86400 * 1000));
-    const str = String(val).trim();
-    const parts = str.split(/[\/\-]/);
-    if (parts.length === 3) {
-      if (parts[0].length === 4) return new Date(parts[0], parts[1]-1, parts[2]);
-      return new Date(parts[2], parts[1]-1, parts[0]);
-    }
-    const d = new Date(str);
-    return isNaN(d.getTime()) ? null : d;
-  }
-
-  function formatDate(d) {
-    if (!d) return "—";
-    const dt = parseDate(d);
-    if (!dt || isNaN(dt.getTime())) return String(d);
-    return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}/${dt.getFullYear()}`;
-  }
-
-  function determineColor(statusNorm, endDate) {
-    const today = new Date(); today.setHours(0,0,0,0);
-    const end = endDate ? parseDate(endDate) : null;
-
-    if (statusNorm.includes("finished")) return "blue";
-    if (statusNorm.includes("on track")) {
-      if (end) {
-        const delta = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
-        if (delta < 0) return "red";
-        if (delta <= 2) return "yellow";
+  (function () {
+    try {
+      if (localStorage.getItem("farol-theme") === "light") {
+        document.body.classList.add("light-theme");
       }
-      return "green";
-    }
-    if (statusNorm.includes("overdue")) return "red";
-    if (statusNorm.includes("delayed") || statusNorm.includes("postponed")) return "yellow";
-    if (statusNorm.includes("not started") || statusNorm.includes("on hold")) return "gray";
+    } catch (e) {}
 
-    if (end) {
-      const delta = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
-      if (delta < 0) return "red";
-      if (delta <= 2) return "yellow";
-    }
-    return "gray";
-  }
+    const input = document.getElementById("file-input");
+    const dropzone = document.getElementById("dropzone");
 
-  function processWorkbook(wb, fileName) {
-    const sheetName = wb.SheetNames.find(s => s.toLowerCase().includes("implementation plan")) || wb.SheetNames[0];
-    const rawData = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, raw: false, dateNF: 'yyyy-mm-dd' });
-
-    let latestUpdate = "Não informado", responsible = "Não informado";
-
-    for (let r = 0; r <= Math.min(5, rawData.length - 1); r++) {
-      const row = rawData[r] || [];
-      for (let i = 0; i < row.length; i++) {
-        const cell = String(row[i] || "").trim().toLowerCase();
-        if (cell.startsWith("latest update")) {
-          if (String(row[i]).includes(":")) {
-            const p = String(row[i]).split(":");
-            if (p[1] && p[1].trim()) { latestUpdate = formatDate(p[1].trim()); continue; }
-          }
-          for (let k = i + 1; k < Math.min(i + 6, row.length); k++) {
-            if (row[k] && String(row[k]).trim()) { latestUpdate = formatDate(row[k]); break; }
-          }
-        } else if (cell.startsWith("responsible")) {
-          if (String(row[i]).includes(":")) {
-            const p = String(row[i]).split(":");
-            if (p[1] && p[1].trim()) { responsible = p[1].trim(); continue; }
-          }
-          for (let k = i + 1; k < Math.min(i + 8, row.length); k++) {
-            const val = String(row[k] || "").trim();
-            if (val && !val.toLowerCase().includes("overdue")) { responsible = val; break; }
-          }
-        }
+    input.addEventListener("change", function () {
+      if (input.files && input.files[0]) {
+        window.processWorkbookFile(input.files[0]);
       }
-    }
-
-    const tasks = [];
-    for (let r = 6; r < rawData.length; r++) {
-      const row = rawData[r] || [];
-      const taskId = String(row[1] || "").trim();
-      const taskName = String(row[3] || "").trim();
-      if (!taskName || /Task ID|Sub Task ID/i.test(taskName)) continue;
-
-      let taskNum = null;
-      if (taskId && !isNaN(parseInt(taskId))) taskNum = parseInt(taskId);
-      else if (String(row[2] || "").trim()) {
-        const p = parseInt(String(row[2]).trim().split(".")[0]);
-        if (!isNaN(p)) taskNum = p;
-      }
-
-      const statusRaw = String(row[8] || "").trim();
-      tasks.push({
-        taskId, subtaskId: String(row[2] || "").trim(), taskNum, taskName,
-        responsible: String(row[4] || "").trim(),
-        startDate: row[5] || null, endDate: row[6] || null,
-        statusRaw, statusNorm: statusRaw.toLowerCase(), remarks: String(row[9] || "").trim(),
-        color: determineColor(statusRaw.toLowerCase(), row[6])
-      });
-    }
-
-    const m602 = tasks.find(t => t.taskId === "602"), m706 = tasks.find(t => t.taskId === "706");
-    const stages = STAGE_WEIGHTS.map(conf => {
-      const subset = tasks.filter(t => t.taskNum !== null && t.taskNum >= conf.min && t.taskNum <= conf.max);
-      let pct = 0;
-      if (subset.length > 0) {
-        const scores = subset.map(t => {
-          for (let key in STATUS_SCORE) if (t.statusNorm.includes(key)) return STATUS_SCORE[key];
-          return 0.0;
-        });
-        pct = Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 1000) / 10;
-      }
-      let domColor = "gray";
-      for (let c of ["red", "yellow", "green", "blue", "gray"]) {
-        if (subset.some(t => t.color === c)) { domColor = c; break; }
-      }
-      return { label: conf.label, weight: conf.weight, pct, color: domColor, tasks: subset };
     });
 
-    renderDashboard(fileName, { 
-      latestUpdate, responsible, 
-      goLiveDate: m602 ? formatDate(m602.endDate) : "N/D", 
-      closureDate: m706 ? formatDate(m706.endDate) : "N/D" 
-    }, stages);
-  }
-
-  function renderDashboard(fileName, meta, stages) {
-    const overallPct = Math.round(stages.reduce((acc, s) => acc + (s.pct * s.weight), 0) * 10) / 10;
-    let overallColor = "gray";
-    for (let c of ["red", "yellow", "green", "blue"]) { if (stages.some(s => s.color === c)) { overallColor = c; break; } }
-
-    document.getElementById("headerSub").textContent = `Arquivo carregado: ${fileName}`;
-    document.getElementById("metaResp").textContent = meta.responsible;
-    document.getElementById("metaUpdate").textContent = meta.latestUpdate;
-    document.getElementById("metaGoLive").textContent = meta.goLiveDate;
-    document.getElementById("metaClosure").textContent = meta.closureDate;
-
-    document.getElementById("gaugePct").textContent = `${overallPct}%`;
-    document.getElementById("gaugeRing").style.background = `conic-gradient(var(--accent) calc(${overallPct} * 3.6deg), var(--border) 0deg)`;
-
-    const macroHtml = [
-      { c: 'blue', label: 'Concluído' }, { c: 'green', label: 'No Prazo' },
-      { c: 'red', label: 'Atrasado' }, { c: 'gray', label: 'Pendente' }
-    ].map(item => {
-      const active = item.c === overallColor ? 'active' : '';
-      const hex = COLORS[item.c].hex;
-      return `<div class="mf-item ${active}">
-                <div class="mf-light" style="background:${hex}; box-shadow: ${active ? `0 0 10px ${hex}` : 'none'}"></div>
-                <span style="${active ? `color:${hex}` : ''}">${item.label}</span>
-              </div>`;
-    }).join("");
-    document.getElementById("macroFarol").innerHTML = macroHtml;
-
-    let tableHtml = "";
-    stages.forEach((s, idx) => {
-      const hex = COLORS[s.color].hex;
-      
-      const taskRows = s.tasks.map(t => {
-        const isSub = Boolean(t.subtaskId);
-        const colorData = COLORS[t.color] || COLORS.gray;
-        const idDisplay = isSub ? t.subtaskId : t.taskId;
-        const badge = `<span class="status-badge" style="background:${colorData.bg}; color:${colorData.text}">${t.statusRaw || 'N/D'}</span>`;
-        return `
-          <tr class="task-row ${isSub ? 'subtask-row' : ''}">
-            <td style="${isSub ? 'padding-left: 36px;' : ''}"><span class="task-id">${idDisplay}</span></td>
-            <td>${t.taskName}</td>
-            <td style="color: var(--text-muted)">${t.responsible}</td>
-            <td style="color: var(--text-muted); white-space:nowrap">${formatDate(t.startDate)}</td>
-            <td style="color: var(--text-muted); white-space:nowrap">${formatDate(t.endDate)}</td>
-            <td>${badge}</td>
-            <td style="color: var(--text-muted); font-size: 11px;">${t.remarks}</td>
-          </tr>`;
-      }).join("");
-
-      const lights = ["gray", "red", "yellow", "green", "blue"].map(c => 
-        `<div class="farol-luz" style="background:${COLORS[c].hex}; ${c === s.color ? 'opacity:1;' : ''}"></div>`
-      ).join("");
-
-      tableHtml += `
-        <tr class="stage-row" onclick="toggleDetail('detail-${idx}')">
-          <td>
-            <div class="stage-name-wrap">
-              <div class="expand-icon">▶</div>
-              <span class="stage-title">${s.label}</span>
-            </div>
-          </td>
-          <td style="text-align: center; color: var(--text-muted); font-weight: 500;">${Math.round(s.weight * 100)}%</td>
-          <td>
-            <div class="progress-cell">
-              <div class="pbar-wrap"><div class="pbar-fill" style="width:${s.pct}%; background:${hex}"></div></div>
-              <span class="pct-label">${s.pct}%</span>
-            </div>
-          </td>
-          <td>
-            <div style="display:flex; align-items:center;">
-              <div class="farol">${lights}</div>
-              <span class="status-label" style="color:${hex}">${STATUS_LABELS[s.color]}</span>
-            </div>
-          </td>
-        </tr>
-        <tr id="detail-${idx}" class="detail-section" style="display:none">
-          <td colspan="4">
-            <div class="detail-inner">
-              <table class="inner-table">
-                <thead>
-                  <tr>
-                    <th style="width: 80px;">ID</th><th>Tarefa</th><th>Responsável</th>
-                    <th style="width: 90px;">Início</th><th style="width: 90px;">Fim</th>
-                    <th style="width: 100px;">Status</th><th>Comentários</th>
-                  </tr>
-                </thead>
-                <tbody>${taskRows}</tbody>
-              </table>
-            </div>
-          </td>
-        </tr>`;
+    ["dragenter", "dragover"].forEach((evt) =>
+      dropzone.addEventListener(evt, function (e) {
+        e.preventDefault();
+        dropzone.classList.add("dragover");
+      })
+    );
+    ["dragleave", "drop"].forEach((evt) =>
+      dropzone.addEventListener(evt, function (e) {
+        e.preventDefault();
+        dropzone.classList.remove("dragover");
+      })
+    );
+    dropzone.addEventListener("drop", function (e) {
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file) window.processWorkbookFile(file);
     });
-
-    document.getElementById("stagesTableBody").innerHTML = tableHtml;
-    document.getElementById("reportContainer").style.display = "block";
-    document.getElementById("dropZone").style.display = "none";
-  }
-
-  function toggleDetail(id) {
-    const el = document.getElementById(id);
-    const row = el.previousElementSibling;
-    const isVisible = el.style.display !== 'none';
-    el.style.display = isVisible ? 'none' : 'table-row';
-    row.classList.toggle('expanded', !isVisible);
-  }
-
-  function toggleTheme() {
-    const body = document.body;
-    if (body.classList.contains('light-theme')) {
-      body.classList.replace('light-theme', 'dark-theme');
-    } else {
-      body.classList.replace('dark-theme', 'light-theme');
-    }
-  }
-
-  const dropZone = document.getElementById('dropZone');
-  document.getElementById('fileInput').addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
-  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-  dropZone.addEventListener('drop', e => {
-    e.preventDefault(); dropZone.classList.remove('dragover');
-    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
-  });
-
-  function handleFile(file) {
-    const reader = new FileReader();
-    reader.onload = e => processWorkbook(XLSX.read(new Uint8Array(e.target.result), { type: 'array' }), file.name);
-    reader.readAsArrayBuffer(file);
-  }
+  })();
 </script>
 </body>
 </html>
